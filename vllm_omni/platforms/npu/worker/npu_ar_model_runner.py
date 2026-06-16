@@ -248,7 +248,7 @@ class NPUARModelRunner(OmniNPUModelRunner):
                 raise RuntimeError("Request IDs in the batch are missing from the merged states!")
             return combined_hidden_states[rid]
         return hidden_states_cpu[start:end]
-    
+
 
     def _build_multimodal_outputs(
         self,
