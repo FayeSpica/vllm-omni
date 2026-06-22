@@ -70,6 +70,18 @@ class Qwen3OmniMoeCode2Wav(nn.Module):
     ):
         super().__init__()
 
+        # On NPU, code2wav is graph-captured via the outer stage aclgraph (its inner
+        # CUDAGraphDecoderWrapper is CUDA-only and stays disabled here). Transposed
+        # convs otherwise dispatch to a non-capturable aclop (Conv2DTranspose ->
+        # "Cannot run aclop operators during NPU graph capture"); disabling internal
+        # format + jit_compile routes them to capturable aclnn kernels. Same recipe
+        # as the Qwen3-TTS code2wav NPU path (_prepare_npu_code2wav_runtime).
+        from vllm_omni.platforms import current_omni_platform
+
+        if current_omni_platform.is_npu():
+            torch.npu.config.allow_internal_format = False
+            torch.npu.set_compile_mode(jit_compile=False)
+
         self.config: Qwen3OmniMoeCode2WavConfig = vllm_config.model_config.hf_config
 
         # Calculate total upsampling factor

@@ -720,10 +720,15 @@ class NPUGenerationModelRunner(OmniNPUModelRunner):
                 )
 
             pad_attn = cudagraph_runtime_mode == CUDAGraphMode.FULL
+            # check how to build dummy
+            if self.use_compress:
+                self.positions.fill_(127)
+                self._dsa_positions_cpu_buf.fill_(127)
             attn_metadata, _ = self._build_attention_metadata(
                 num_tokens=num_tokens_unpadded,
                 num_tokens_padded=num_tokens_padded,
-                num_reqs=num_reqs_padded,
+                num_reqs=num_reqs,
+                num_reqs_padded=num_reqs_padded,
                 max_query_len=max_query_len,
                 ubatch_slices=ubatch_slices_padded if pad_attn else ubatch_slices,
                 for_cudagraph_capture=is_graph_capturing,
@@ -742,7 +747,16 @@ class NPUGenerationModelRunner(OmniNPUModelRunner):
         ):
             # Make sure padding doesn't exceed max_num_tokens
             assert num_tokens_padded <= self.max_num_tokens
-            if self.supports_mm_inputs and not self.model_config.is_encoder_decoder or self.enable_prompt_embeds:
+            if self.supports_mm_inputs and not self.model_config.is_encoder_decoder:
+                # Honor `requires_raw_input_tokens` (e.g. code2wav/talker stages
+                # carry codec codes in input_ids and need the raw tokens during
+                # cudagraph capture), mirroring GPU `_prepare_mm_inputs`.
+                if getattr(self.model, "requires_raw_input_tokens", False):
+                    input_ids = self.input_ids.gpu[:num_tokens_padded]
+                else:
+                    input_ids = None
+                inputs_embeds = self.inputs_embeds.gpu[:num_tokens_padded]
+            elif self.enable_prompt_embeds:
                 input_ids = None
                 inputs_embeds = self.inputs_embeds.gpu[:num_tokens_padded]
             else:
@@ -818,6 +832,8 @@ class NPUGenerationModelRunner(OmniNPUModelRunner):
                 aclgraph_runtime_mode=cudagraph_runtime_mode,
                 batch_descriptor=batch_desc,
                 model_instance=self.model,
+                has_sinks=self._has_sinks,
+                input_ids=input_ids,
             ):
                 outputs = self.model(
                     input_ids=input_ids,
@@ -852,6 +868,10 @@ class NPUGenerationModelRunner(OmniNPUModelRunner):
                 target.clear_all_moe_loads()
             if self.dynamic_eplb:
                 self.eplb_updator.forward_end()
+            self._finalize_dump_data(dump=False)
+            if self.use_compress and force_attention:
+                self.positions.fill_(0)
+                self._dsa_positions_cpu_buf.fill_(0)
 
             return hidden_states, None
 
