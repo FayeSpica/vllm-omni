@@ -82,9 +82,11 @@ platforms:
         gpu_memory_utilization: 0.6
         max_num_batched_tokens: 8192
         devices: "2"
+        enforce_eager: true
       - stage_id: 2
         gpu_memory_utilization: 0.3
         devices: "2"
+        enforce_eager: true
 
   # Code2Wav decode uses UpSample1d, which calls F.conv_transpose1d.
   # On ROCm this routes through MIOpen and is not capture-safe during
