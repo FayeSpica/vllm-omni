@@ -70,6 +70,18 @@ class Qwen3OmniMoeCode2Wav(nn.Module):
     ):
         super().__init__()
 
+        # On NPU, code2wav is graph-captured via the outer stage aclgraph (its inner
+        # CUDAGraphDecoderWrapper is CUDA-only and stays disabled here). Transposed
+        # convs otherwise dispatch to a non-capturable aclop (Conv2DTranspose ->
+        # "Cannot run aclop operators during NPU graph capture"); disabling internal
+        # format + jit_compile routes them to capturable aclnn kernels. Same recipe
+        # as the Qwen3-TTS code2wav NPU path (_prepare_npu_code2wav_runtime).
+        from vllm_omni.platforms import current_omni_platform
+
+        if current_omni_platform.is_npu():
+            torch.npu.config.allow_internal_format = False
+            torch.npu.set_compile_mode(jit_compile=False)
+
         self.config: Qwen3OmniMoeCode2WavConfig = vllm_config.model_config.hf_config
 
         # Calculate total upsampling factor
@@ -175,6 +187,44 @@ class Qwen3OmniMoeCode2Wav(nn.Module):
             self._cudagraph_wrapper.capture_sizes,
         )
 
+    def _pre_transformer_attention_mask(self, inputs_embeds: torch.Tensor) -> dict[str, torch.Tensor | None]:
+        """Build the pre_transformer attention-mask mapping in a graph-capture-safe way.
+
+        HF's ``pre_transformer.forward`` would otherwise call ``create_causal_mask``
+        with an auto-generated ``position_ids`` (``cache_position.unsqueeze(0)``). That
+        routes into ``find_packed_sequence_indices``, whose
+        ``(packed_sequence_mask[:, -1] == 0).all()`` is a data-dependent host readback
+        guarded only by ``is_cuda_stream_capturing()``. Under Ascend aclgraph capture
+        that guard is False, so the ``.all()`` syncs the captured stream -> EZ1001 /
+        107027.
+
+        code2wav decodes a single contiguous codec sequence (never packed), so we build
+        the masks ourselves with ``position_ids=None``. That skips packed-sequence
+        detection entirely (see ``_preprocess_mask_arguments``) while producing the exact
+        same causal / sliding-window masks, and passing a prebuilt 4D mapping makes
+        ``pre_transformer`` reuse it verbatim instead of recomputing it under capture.
+        No monkeypatch of transformers is required.
+        """
+        from transformers.masking_utils import (
+            create_causal_mask,
+            create_sliding_window_causal_mask,
+        )
+
+        pre = self.pre_transformer
+        cache_position = torch.arange(inputs_embeds.shape[1], device=inputs_embeds.device)
+        mask_kwargs = {
+            "config": pre.config,
+            "input_embeds": inputs_embeds,
+            "attention_mask": None,
+            "cache_position": cache_position,
+            "past_key_values": None,
+            "position_ids": None,  # skip find_packed_sequence_indices host-sync
+        }
+        mask_mapping: dict[str, torch.Tensor | None] = {"full_attention": create_causal_mask(**mask_kwargs)}
+        if pre.has_sliding_layers:
+            mask_mapping["sliding_attention"] = create_sliding_window_causal_mask(**mask_kwargs)
+        return mask_mapping
+
     def forward(self, codes: torch.Tensor) -> torch.Tensor:
         """
         Convert num_quantizers-layer RVQ codes to audio waveform.
@@ -194,7 +244,8 @@ class Qwen3OmniMoeCode2Wav(nn.Module):
         # Shape: [batch, seq_len, hidden_size]
 
         # Stage 2: Pre-Transformer (add temporal context)
-        hidden = self.pre_transformer(inputs_embeds=hidden).last_hidden_state
+        attention_mask = self._pre_transformer_attention_mask(hidden)
+        hidden = self.pre_transformer(inputs_embeds=hidden, attention_mask=attention_mask).last_hidden_state
         # Shape: [batch, seq_len, hidden_size]
 
         # Stage 3: Upsampling

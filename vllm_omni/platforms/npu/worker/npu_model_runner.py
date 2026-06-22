@@ -39,6 +39,11 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
             from vllm_omni.platforms.npu._310p.patch import apply_model_patches
 
             apply_model_patches(self.model_config)
+        # Teach HF transformers' stream-capture detection about Ascend aclgraph so
+        # create_causal_mask doesn't host-sync under capture (e.g. code2wav).
+        from vllm_omni.platforms.npu.patch import apply_npu_transformers_patches
+
+        apply_npu_transformers_patches()
         NPUModelRunner.load_model(self, *args, **kwargs)
         # Initialize enable_sp cache to avoid get_current_vllm_config() error
         # in _pad_for_sequence_parallelism during execute_model.
@@ -197,10 +202,15 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
                 )
 
             pad_attn = cudagraph_runtime_mode == CUDAGraphMode.FULL
+            # check how to build dummy
+            if self.use_compress:
+                self.positions.fill_(127)
+                self._dsa_positions_cpu_buf.fill_(127)
             attn_metadata, _ = self._build_attention_metadata(
                 num_tokens=num_tokens_unpadded,
                 num_tokens_padded=num_tokens_padded,
-                num_reqs=num_reqs_padded,
+                num_reqs=num_reqs,
+                num_reqs_padded=num_reqs_padded,
                 max_query_len=max_query_len,
                 ubatch_slices=ubatch_slices_padded if pad_attn else ubatch_slices,
                 for_cudagraph_capture=is_graph_capturing,
@@ -285,6 +295,8 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
                 aclgraph_runtime_mode=cudagraph_runtime_mode,
                 batch_descriptor=batch_desc,
                 model_instance=self.model,
+                has_sinks=self._has_sinks,
+                input_ids=input_ids,
             ):
                 # ---------------------------------------Omni-new----------------------------------------------
                 if getattr(self.model, "talker", None) is not None and self.has_talker_mtp:
@@ -332,6 +344,10 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
                 target.clear_all_moe_loads()
             if self.dynamic_eplb:
                 self.eplb_updator.forward_end()
+            self._finalize_dump_data(dump=False)
+            if self.use_compress and force_attention:
+                self.positions.fill_(0)
+                self._dsa_positions_cpu_buf.fill_(0)
             return hidden_states, hidden_states
 
     def _model_forward(

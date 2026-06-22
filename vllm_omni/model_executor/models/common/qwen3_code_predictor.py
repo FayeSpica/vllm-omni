@@ -843,7 +843,7 @@ class CodePredictorWrapper(nn.Module):
                     sorted_probs = F.softmax(sorted_logits, dim=-1, dtype=torch.float32)
                     cumulative_probs = sorted_probs.cumsum(dim=-1)
                     remove_mask = (cumulative_probs - sorted_probs) >= s_top_p
-                    sorted_logits[remove_mask] = float("-inf")
+                    sorted_logits = sorted_logits.masked_fill(remove_mask, float("-inf"))
                     logits = sorted_logits.scatter(1, sorted_idx, sorted_logits)
                 probs = F.softmax(logits, dim=-1, dtype=torch.float32)
                 code = torch.multinomial(probs, num_samples=1, generator=generator)
