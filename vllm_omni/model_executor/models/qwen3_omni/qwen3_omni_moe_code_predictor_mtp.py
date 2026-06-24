@@ -6,7 +6,6 @@ from vllm_omni.model_executor.models.common.qwen3_code_predictor import (
     CodePredictorWrapper,
     CodePredictorWrapperConfig,
 )
-from vllm_omni.platforms import current_omni_platform
 
 
 class Qwen3OmniMoeTalkerCodePredictor(CodePredictorWrapper):
