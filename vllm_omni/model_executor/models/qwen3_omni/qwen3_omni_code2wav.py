@@ -175,22 +175,6 @@ class Qwen3OmniMoeCode2Wav(nn.Module):
             self._cudagraph_wrapper.capture_sizes,
         )
 
-    def _pre_transformer_attention_mask(self, inputs_embeds: torch.Tensor):
-        """
-        Build the ``pre_transformer`` attention mask (platform-agnostic hook).
-
-        Returns ``None`` so ``pre_transformer`` builds its own mask (capture-safe on CUDA).
-        The NPU platform layer overrides this to build a capture-safe mask; see
-        ``vllm_omni/platforms/npu/models/qwen3_omni_code2wav.py``.
-
-        Args:
-            inputs_embeds: [batch, seq_len, hidden_size] - code-embedding output
-
-        Returns:
-            attention_mask: None (default); NPU override returns a {attention_type: 4D mask} mapping
-        """
-        return None
-
     def forward(self, codes: torch.Tensor) -> torch.Tensor:
         """
         Convert num_quantizers-layer RVQ codes to audio waveform.
@@ -210,8 +194,7 @@ class Qwen3OmniMoeCode2Wav(nn.Module):
         # Shape: [batch, seq_len, hidden_size]
 
         # Stage 2: Pre-Transformer (add temporal context)
-        attention_mask = self._pre_transformer_attention_mask(hidden)
-        hidden = self.pre_transformer(inputs_embeds=hidden, attention_mask=attention_mask).last_hidden_state
+        hidden = self.pre_transformer(inputs_embeds=hidden).last_hidden_state
         # Shape: [batch, seq_len, hidden_size]
 
         # Stage 3: Upsampling
