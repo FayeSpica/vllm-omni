@@ -17,7 +17,7 @@ from transformers.models.qwen3_omni_moe.configuration_qwen3_omni_moe import (
     Qwen3OmniMoeTalkerConfig,
     Qwen3OmniMoeThinkerConfig,
 )
-from vllm.config import CUDAGraphMode, ModelConfig, VllmConfig
+from vllm.config import ModelConfig, VllmConfig
 from vllm.inputs import PromptType, TokensPrompt
 from vllm.logger import init_logger
 from vllm.model_executor.models.interfaces import SupportsMRoPE, SupportsMultiModal, SupportsPP, SupportsRealtime
@@ -129,21 +129,6 @@ class Qwen3OmniMoeForConditionalGeneration(
 
         # Determine model stage
         self.model_stage = vllm_config.model_config.model_stage
-
-        # Qwen3-Omni is not FULL-cudagraph-safe on NPU. Cap the mode at PIECEWISE on NPU so decode batches are not
-        # captured as a single FULL graph. NONE (enforce_eager) is left untouched.
-        if current_omni_platform.is_npu():
-            compilation_config = vllm_config.compilation_config
-            if (
-                compilation_config.cudagraph_mode is not None
-                and compilation_config.cudagraph_mode.has_full_cudagraphs()
-            ):
-                logger.info_once(
-                    "Qwen3-Omni on NPU: capping cudagraph_mode from %s to PIECEWISE "
-                    "(FULL cudagraph capture is unsupported by code_predictor/HF mask ops).",
-                    compilation_config.cudagraph_mode.name,
-                )
-                compilation_config.cudagraph_mode = CUDAGraphMode.PIECEWISE
 
         if self.model_stage == "thinker":
             self.use_async_omni_output = True
