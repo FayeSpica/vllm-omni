@@ -111,7 +111,7 @@ docker run --rm \
     -v ~/.cache:/root/.cache \
     -p 8091:8091 \
     quay.io/ascend/vllm-omni:v0.24.0-a3 \
-    vllm serve --omni Qwen/Qwen3-Omni-30B-A3B-Instruct --port 8091
+    bash
 ```
 
 !!! tip
