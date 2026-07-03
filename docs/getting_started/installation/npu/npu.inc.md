@@ -110,8 +110,7 @@ docker run --rm \
     -v /etc/ascend_install.info:/etc/ascend_install.info \
     -v ~/.cache:/root/.cache \
     -p 8091:8091 \
-    quay.io/ascend/vllm-omni:v0.24.0-a3 \
-    bash
+    -it quay.io/ascend/vllm-omni:v0.24.0-a3 bash
 ```
 
 !!! tip
