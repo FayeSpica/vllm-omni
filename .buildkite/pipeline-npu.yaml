@@ -158,7 +158,7 @@ steps:
       echo "$${IMAGE_REGISTRY}/$${IMAGE_NAME}:$${VLLM_IMAGE_TAG}"
 
   - label: "Upload Ready Pipeline"
-    depends_on: 
+    depends_on:
       - image-build
       - image-build-a3
     key: upload-ready-pipeline
