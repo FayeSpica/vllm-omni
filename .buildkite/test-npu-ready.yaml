@@ -32,6 +32,7 @@ steps:
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
           VLLM_ALLOW_LONG_MAX_MODEL_LEN: "1"
+          HF_HUB_OFFLINE: "1"
           HF_TOKEN: "${HF_TOKEN}"
         commands:
           - df -h
