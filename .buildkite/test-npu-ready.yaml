@@ -41,7 +41,7 @@ steps:
       - label: ":full_moon: Omni · Accuracy Test"
         agents:
             queue: "ascend-a3"
-            resource_class: "npu-2"
+            resource_class: "npu-3"
         image: "swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/vllm-omni-ci-npu:${BUILDKITE_COMMIT}-a3"
         plugins:
           - kubernetes:
