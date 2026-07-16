@@ -18,6 +18,7 @@ steps:
           VLLM_ALLOW_LONG_MAX_MODEL_LEN: "1"
           HF_TOKEN: "${HF_TOKEN}"
         commands:
+          - export HF_HUB_OFFLINE=1
           - pytest -s -v tests/e2e/online_serving/test_qwen3_tts_customvoice.py -m 'core_model' --run-level 'core_model'
       - label: ":full_moon: TTS · Perf Test"
         agents:
@@ -35,13 +36,13 @@ steps:
           HF_ENDPOINT: "https://hf-mirror.com"
           HF_TOKEN: "${HF_TOKEN}"
         commands:
-          - sleep 1
+          - export HF_HUB_OFFLINE=1
           - export LD_PRELOAD=libjemalloc.so.2
           - pytest -s -v tests/e2e/online_serving/test_qwen3_tts_customvoice.py -m 'core_model' --run-level 'core_model'
       - label: ":full_moon: Omni · Accuracy Test"
         agents:
             queue: "ascend-a3"
-            resource_class: "npu-3"
+            resource_class: "npu-4"
         image: "swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/vllm-omni-ci-npu:${BUILDKITE_COMMIT}-a3"
         plugins:
           - kubernetes:
@@ -50,6 +51,7 @@ steps:
                   - name: swr-secret
         timeout_in_minutes: 180
         commands:
+          - export HF_HUB_OFFLINE=1
           - export SEED_TTS_WER_EVAL=0
           - export LD_PRELOAD=libjemalloc.so.2
           - |
