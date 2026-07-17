@@ -6,7 +6,7 @@
         "hardware_marks": {
           "res": {
             "cuda": "H100",
-            "npu": "910"
+            "npu": "A3"
           },
           "num_cards": 2
         }
@@ -116,7 +116,7 @@
         "hardware_marks": {
           "res": {
             "cuda": "H100",
-            "npu": "910"
+            "npu": "A3"
           },
           "num_cards": 2
         }
