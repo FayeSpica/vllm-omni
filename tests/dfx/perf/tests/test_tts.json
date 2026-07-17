@@ -5,7 +5,8 @@
       {
         "hardware_marks": {
           "res": {
-            "cuda": "H100"
+            "cuda": "H100",
+            "npu": "910"
           },
           "num_cards": 2
         }
@@ -114,7 +115,8 @@
       {
         "hardware_marks": {
           "res": {
-            "cuda": "H100"
+            "cuda": "H100",
+            "npu": "910"
           },
           "num_cards": 2
         }
