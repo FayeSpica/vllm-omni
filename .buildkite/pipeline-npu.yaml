@@ -175,7 +175,9 @@ steps:
 
   # L4 Test — main+NIGHTLY=1 (scheduled), or PR with specific label (e.g. add label then Rebuild)
   - label: "Upload Nightly Pipeline"
-    depends_on: image-build
+    depends_on:
+      - image-build
+      - image-build-a3
     key: upload-nightly-pipeline
     if: >-
       (build.branch == "main" && build.env("NIGHTLY") == "1") ||
