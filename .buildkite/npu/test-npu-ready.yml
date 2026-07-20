@@ -58,3 +58,54 @@ steps:
             EXIT=$$?
             buildkite-agent artifact upload "tests/dfx/perf/results/*.json"
             exit $$EXIT
+      - label: ":full_moon: Omni · Accuracy Test"
+        timeout_in_minutes: 180
+        agents:
+          queue: "ascend-a3"
+          resource_class: "npu-2"
+        image: "swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/vllm-omni-ci-npu:${BUILDKITE_COMMIT}-a3"
+        plugins:
+          - kubernetes:
+              podSpecPatch:
+                imagePullSecrets:
+                  - name: swr-secret
+        env:
+          VLLM_WORKER_MULTIPROC_METHOD: spawn
+          VLLM_ALLOW_LONG_MAX_MODEL_LEN: "1"
+          HF_TOKEN: "${HF_TOKEN}"
+        commands:
+          - export SEED_TTS_WER_EVAL=1
+          - export SEED_TTS_EVAL_DEVICE=cpu
+          - |
+            set +e
+            pytest -s -v tests/e2e/accuracy/qwen3_omni/test_qwen3_omni.py -m "full_model" --run-level full_model
+            EXIT=$$?
+            buildkite-agent artifact upload "tests/e2e/accuracy/qwen3_omni/results/qwen_omni_acc/*.json"
+            exit $$EXIT
+      - label: ":full_moon: Diffusion X2V · Perf Test"
+        timeout_in_minutes: 180
+        agents:
+          queue: "ascend-a3"
+          resource_class: "npu-4"
+        key: nightly-diffusion-x2v-performance
+        image: "swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/vllm-omni-ci-npu:${BUILDKITE_COMMIT}-a3"
+        plugins:
+          - kubernetes:
+              podSpecPatch:
+                imagePullSecrets:
+                  - name: swr-secret
+        env:
+          VLLM_WORKER_MULTIPROC_METHOD: spawn
+          VLLM_ALLOW_LONG_MAX_MODEL_LEN: "1"
+          HF_TOKEN: "${HF_TOKEN}"
+          DIFFUSION_ATTENTION_BACKEND: TORCH_SDPA
+        commands:
+          - export DIFFUSION_BENCHMARK_DIR=tests/dfx/perf/results
+          - export DIFFUSION_ATTENTION_BACKEND=FLASH_ATTN
+          - |
+            set +e
+            pytest -s -v tests/dfx/perf/scripts/run_diffusion_benchmark.py -m npu --test-config-file tests/dfx/perf/tests/test_wan22_i2v_vllm_omni.json
+            EXIT=$$?
+            buildkite-agent artifact upload "tests/dfx/perf/results/diffusion_result_*.json"
+            buildkite-agent artifact upload "tests/dfx/perf/results/logs/*.log"
+            exit $$EXIT
