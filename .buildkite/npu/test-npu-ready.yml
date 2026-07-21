@@ -43,7 +43,6 @@ steps:
             EXIT=$$?
             buildkite-agent artifact upload "tests/dfx/perf/results/*.json"
             exit $$EXIT
-      - wait: ~
       - label: ":full_moon: Omni · Accuracy Test"
         timeout_in_minutes: 180
         agents:
@@ -89,6 +88,7 @@ steps:
           - export DIFFUSION_BENCHMARK_DIR=tests/dfx/perf/results
           - export DIFFUSION_ATTENTION_BACKEND=FLASH_ATTN
           - export HF_HUB_OFFLINE=0
+          - export HF_ENDPOINT="https://hf-mirror.com"
           - unset HF_ENDPOINT
           - |
             set +e
