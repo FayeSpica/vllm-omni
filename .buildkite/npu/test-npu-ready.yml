@@ -102,7 +102,7 @@ steps:
         agents:
           queue: "ascend-a3"
           resource_class: "npu-4"
-        key: nightly-diffusion-x2v-performance
+        key: nightly-diffusion-x2iat-performance-qwen-image-edit-2511
         image: "swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/vllm-omni-ci-npu:${BUILDKITE_COMMIT}-a3"
         plugins:
           - kubernetes:
