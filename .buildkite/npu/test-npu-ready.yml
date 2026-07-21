@@ -16,6 +16,7 @@ steps:
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
           HF_TOKEN: "${HF_TOKEN}"
+          HF_HUB_OFFLINE: "0"
         commands:
           - pytest -s -v tests/e2e/online_serving/test_wan22_expansion.py -k npu_i2v --run-level "full_model"
       - label: ":sound: TTS · Qwen3-TTS CustomVoice Test"
@@ -58,6 +59,7 @@ steps:
             EXIT=$$?
             buildkite-agent artifact upload "tests/dfx/perf/results/*.json"
             exit $$EXIT
+      - wait: ~
       - label: ":full_moon: Omni · Accuracy Test"
         timeout_in_minutes: 180
         agents:
@@ -99,6 +101,7 @@ steps:
           VLLM_ALLOW_LONG_MAX_MODEL_LEN: "1"
           HF_TOKEN: "${HF_TOKEN}"
           DIFFUSION_ATTENTION_BACKEND: TORCH_SDPA
+          HF_HUB_OFFLINE: "0"
         commands:
           - export DIFFUSION_BENCHMARK_DIR=tests/dfx/perf/results
           - export DIFFUSION_ATTENTION_BACKEND=FLASH_ATTN
