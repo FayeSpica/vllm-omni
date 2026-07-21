@@ -48,7 +48,7 @@ steps:
         timeout_in_minutes: 180
         agents:
           queue: "ascend-a3"
-          resource_class: "npu-2"
+          resource_class: "npu-4"
         image: "swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/vllm-omni-ci-npu:${BUILDKITE_COMMIT}-a3"
         plugins:
           - kubernetes:
