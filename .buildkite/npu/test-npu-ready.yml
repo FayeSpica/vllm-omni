@@ -85,10 +85,11 @@ steps:
           VLLM_ALLOW_LONG_MAX_MODEL_LEN: "1"
           HF_TOKEN: "${HF_TOKEN}"
           DIFFUSION_ATTENTION_BACKEND: TORCH_SDPA
-          HF_HUB_OFFLINE: "0"
         commands:
           - export DIFFUSION_BENCHMARK_DIR=tests/dfx/perf/results
           - export DIFFUSION_ATTENTION_BACKEND=FLASH_ATTN
+          - export HF_HUB_OFFLINE=0
+          - unset HF_ENDPOINT
           - |
             set +e
             pytest -s -v tests/dfx/perf/scripts/run_diffusion_benchmark.py -m npu --test-config-file tests/dfx/perf/tests/test_wan22_i2v_vllm_omni.json
