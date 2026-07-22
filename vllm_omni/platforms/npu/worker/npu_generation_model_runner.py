@@ -157,8 +157,6 @@ class NPUGenerationModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin
                         encoder_cache=self.encoder_cache,
                     ) as ec_connector_output:
                         self._execute_mm_encoder(scheduler_output)
-                        # [Omni] issue #5234: carry connector signals (e.g. recv)
-                        # even on the empty-encoder early return.
                         return self.attach_omni_connector_output(
                             make_empty_encoder_model_runner_output(scheduler_output)
                         )

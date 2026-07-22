@@ -397,7 +397,6 @@ class NPUARModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin):
             cache_dtype=str(self.cache_config.cache_dtype),
             request_id_resolver=self._resolve_global_request_id,
         )
-
         #  -------------------------------------- Omni-new -------------------------------------------------
         # Full-payload delivery: consume any inbound stage payload and flush finished producer  payloads to 
         # the next stage.
