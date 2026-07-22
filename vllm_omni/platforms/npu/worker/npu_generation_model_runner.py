@@ -58,7 +58,6 @@ class NPUGenerationModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin
         }
         if getattr(self.model_config, "model_arch", None) in _OMNI_CONNECTOR_INIT_ARCHS:
             self.init_omni_connectors(
-                vllm_config=self.vllm_config,
                 model_config=self.model_config,
             )
 
