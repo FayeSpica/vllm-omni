@@ -356,8 +356,7 @@ def _kill_process_tree(pid: int) -> None:
 
 
 def _resolve_offline_model(model: str) -> str:
-    """Under HF_HUB_OFFLINE, resolve a HF repo id to its local snapshot dir.
-    """
+    """Under HF_HUB_OFFLINE, resolve a HF repo id to its local snapshot dir."""
     import huggingface_hub
 
     if not model or os.path.isdir(model) or not huggingface_hub.constants.HF_HUB_OFFLINE:
