@@ -91,7 +91,7 @@ steps:
       build.pull_request.labels includes "nightly-test" ||
       build.pull_request.labels includes "diffusion-x2iat-test"
     steps:
-      - label: "full_moon: Diffusion X2I(&A&T) · Perf Test · Qwen-Image-Edit-2511"
+      - label: ":full_moon: Diffusion X2I(&A&T) · Perf Test · Qwen-Image-Edit-2511"
         key: nightly-diffusion-x2iat-performance-qwen-image-edit-2511
         timeout_in_minutes: 180
         agents:
