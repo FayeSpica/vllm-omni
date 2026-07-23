@@ -37,6 +37,10 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
       "pyttsx3>=2.99" \
       "opencv-python>=4.12.0.88" \
       "imageio[ffmpeg]>=0.6.0" \
+      "jiwer>=3.0.0" \
+      "zhon>=2.0.0" \
+      "zhconv>=1.4.2" \
+      "funasr>=1.0.0" \
       --index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple \
       --trusted-host cache-service.nginx-pypi-cache.svc.cluster.local \
       --default-timeout=60 && \
