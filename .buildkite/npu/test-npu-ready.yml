@@ -43,7 +43,8 @@ steps:
             EXIT=$$?
             buildkite-agent artifact upload "tests/dfx/perf/results/*.json"
             exit $$EXIT
-      - label: ":full_moon: Omni · Accuracy Test"
+      - label: ":full_moon: Omni · Perf Test · No Async Chunk"
+        key: nightly-omni-performance-no-async-chunk
         timeout_in_minutes: 180
         agents:
           queue: "ascend-a3"
@@ -59,20 +60,43 @@ steps:
           VLLM_ALLOW_LONG_MAX_MODEL_LEN: "1"
           HF_TOKEN: "${HF_TOKEN}"
         commands:
-          - export SEED_TTS_WER_EVAL=1
-          - export SEED_TTS_EVAL_DEVICE=cpu
+          - export BENCHMARK_DIR=tests/dfx/perf/results
           - |
             set +e
-            pytest -s -v tests/e2e/accuracy/qwen3_omni/test_qwen3_omni.py -m "full_model" --run-level full_model
+            pytest -s -v tests/dfx/perf/scripts/run_benchmark.py -m npu --test-config-file tests/dfx/perf/tests/test_qwen3_omni_no_async_chunk.json
             EXIT=$$?
-            buildkite-agent artifact upload "tests/e2e/accuracy/qwen3_omni/results/qwen_omni_acc/*.json"
+            buildkite-agent artifact upload "tests/dfx/perf/results/*.json"
             exit $$EXIT
-      - label: ":full_moon: Diffusion X2V · Perf Test"
+      - label: ":full_moon: Omni · Perf Test · Async Chunk"
+        key: nightly-omni-performance-async-chunk
         timeout_in_minutes: 180
         agents:
           queue: "ascend-a3"
           resource_class: "npu-4"
+        image: "swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/vllm-omni-ci-npu:${BUILDKITE_COMMIT}-a3"
+        plugins:
+          - kubernetes:
+              podSpecPatch:
+                imagePullSecrets:
+                  - name: swr-secret
+        env:
+          VLLM_WORKER_MULTIPROC_METHOD: spawn
+          VLLM_ALLOW_LONG_MAX_MODEL_LEN: "1"
+          HF_TOKEN: "${HF_TOKEN}"
+        commands:
+          - export BENCHMARK_DIR=tests/dfx/perf/results
+          - |
+            set +e
+            pytest -s -v tests/dfx/perf/scripts/run_benchmark.py -m npu --test-config-file tests/dfx/perf/tests/test_qwen3_omni_async_chunk.json
+            EXIT=$$?
+            buildkite-agent artifact upload "tests/dfx/perf/results/*.json"
+            exit $$EXIT
+      - label: ":full_moon: Diffusion X2V · Perf Test"
         key: nightly-diffusion-x2v-performance
+        timeout_in_minutes: 180
+        agents:
+          queue: "ascend-a3"
+          resource_class: "npu-4"
         image: "swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/vllm-omni-ci-npu:${BUILDKITE_COMMIT}-a3"
         plugins:
           - kubernetes:
@@ -86,8 +110,6 @@ steps:
           DIFFUSION_ATTENTION_BACKEND: TORCH_SDPA
         commands:
           - export DIFFUSION_BENCHMARK_DIR=tests/dfx/perf/results
-          - export HF_ENDPOINT="https://hf-mirror.com"
-          - unset HF_ENDPOINT
           - |
             set +e
             pytest -s -v tests/dfx/perf/scripts/run_diffusion_benchmark.py -m npu --test-config-file tests/dfx/perf/tests/test_wan22_i2v_vllm_omni.json
@@ -96,11 +118,11 @@ steps:
             buildkite-agent artifact upload "tests/dfx/perf/results/logs/*.log"
             exit $$EXIT
       - label: "full_moon: Diffusion X2I(&A&T) · Perf Test · Qwen-Image-Edit-2511"
+        key: nightly-diffusion-x2iat-performance-qwen-image-edit-2511
         timeout_in_minutes: 180
         agents:
           queue: "ascend-a3"
           resource_class: "npu-8"
-        key: nightly-diffusion-x2iat-performance-qwen-image-edit-2511
         image: "swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/vllm-omni-ci-npu:${BUILDKITE_COMMIT}-a3"
         plugins:
           - kubernetes:
