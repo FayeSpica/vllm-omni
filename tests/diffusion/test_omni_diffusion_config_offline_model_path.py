@@ -38,17 +38,13 @@ class TestOmniDiffusionConfigOfflineModelPath:
         assert config.model == _LOCAL_SNAPSHOT
         assert record_get_model_path == [("foo/bar", None)]
 
-    def test_online_leaves_model_untouched(
-        self, monkeypatch: pytest.MonkeyPatch, record_get_model_path
-    ) -> None:
+    def test_online_leaves_model_untouched(self, monkeypatch: pytest.MonkeyPatch, record_get_model_path) -> None:
         monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_OFFLINE", False)
         config = OmniDiffusionConfig(model="foo/bar")
         assert config.model == "foo/bar"
         assert record_get_model_path == []
 
-    def test_offline_local_path_unchanged(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path
-    ) -> None:
+    def test_offline_local_path_unchanged(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
         monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_OFFLINE", True)
         local = str(tmp_path)
         config = OmniDiffusionConfig(model=local)

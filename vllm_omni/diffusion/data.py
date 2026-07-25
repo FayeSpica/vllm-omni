@@ -1008,7 +1008,7 @@ class OmniDiffusionConfig:
                 "diffusers_load_kwargs and diffusers_call_kwargs are only "
                 "valid together with diffusion_load_format=diffusers"
             )
-        
+
         # when use hf offline, replace model to local model path
         # align with ar stage behavior, see vllm/engine/arg_utils.py
         if huggingface_hub.constants.HF_HUB_OFFLINE:
@@ -1016,8 +1016,7 @@ class OmniDiffusionConfig:
             self.model = get_model_path(self.model, self.revision)
             if model_id is not self.model:
                 logger.info(
-                    "HF_HUB_OFFLINE is True, replace model_id "
-                    "[%s] to model_path [%s]",
+                    "HF_HUB_OFFLINE is True, replace model_id [%s] to model_path [%s]",
                     model_id,
                     self.model,
                 )
