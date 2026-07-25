@@ -36,14 +36,14 @@ steps:
     agents:
       queue: "cpu_queue_premerge"
 
-  # L4 Test — main+NIGHTLY=1 (scheduled), or PR with specific label (e.g. add label then Rebuild)
-  - label: "Upload Nightly Pipeline"
-    depends_on: image-build
-    key: upload-nightly-pipeline
-    commands:
-      - python3 .buildkite/common/scripts/upload_pipeline.py --upload .buildkite/cuda/test-nightly.yml
-    agents:
-      queue: "cpu_queue_premerge"
+#  # L4 Test — main+NIGHTLY=1 (scheduled), or PR with specific label (e.g. add label then Rebuild)
+#  - label: "Upload Nightly Pipeline"
+#    depends_on: image-build
+#    key: upload-nightly-pipeline
+#    commands:
+#      - python3 .buildkite/common/scripts/upload_pipeline.py --upload .buildkite/cuda/test-nightly.yml
+#    agents:
+#      queue: "cpu_queue_premerge"
 
   # L5 Test — main+WEEKLY=1 (scheduled), or PR with weekly-test label
   - label: "Upload Weekly Pipeline"
