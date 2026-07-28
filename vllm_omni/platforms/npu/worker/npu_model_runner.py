@@ -47,6 +47,24 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
         self._maybe_enable_output_token_ids_for_model_sampler()
         self._init_talker_mtp()
 
+    def _update_states(self, scheduler_output) -> Any:
+        """Mirror NPUModelRunner._update_states and
+           call OmniGPUModelRunner._update_states to update Omni-specific states.
+        """
+        req_data = scheduler_output.scheduled_cached_reqs
+
+        if self.use_async_scheduling:
+            for i, req_id in enumerate(req_data.req_ids):
+                req_state = self.requests.get(req_id)
+                if req_state is None:
+                    continue
+                if req_data.num_computed_tokens[i] < req_state.num_computed_tokens:
+                    req_state.prev_num_draft_len = 0
+
+        self._apply_pp_sampled_tokens_from_scheduler_output(scheduler_output)
+
+        return OmniGPUModelRunner._update_states(self, scheduler_output)
+
     @torch.inference_mode()
     def _dummy_run(
         self,
@@ -130,14 +148,16 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
             force_has_lora=num_active_loras > 0,
             force_num_active_loras=num_active_loras,
         )
-        if self.use_cp:
-            self.pcp_manager.init_batch_info(
+        if self.use_dcp:
+            self.dcp_manager.init_batch_info(
                 num_scheduled_tokens,
                 num_reqs,
+                self.input_batch.num_computed_tokens_cpu,
+                self.input_batch.num_prompt_tokens,
             )
             if self.speculative_config:
-                self.pcp_manager.query_lens_pcp_full.cpu[:num_reqs] = torch.from_numpy(num_scheduled_tokens)
-                self.pcp_manager.query_lens_pcp_full.copy_to_gpu()
+                self.dcp_manager.query_lens_full.cpu[:num_reqs] = torch.from_numpy(num_scheduled_tokens)
+                self.dcp_manager.query_lens_full.copy_to_gpu()
         if cudagraph_runtime_mode is None:
             cudagraph_runtime_mode = _cudagraph_mode
         else:
@@ -151,66 +171,72 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
             # pad is needed if the pad of `num_tokens` is triggered inside CudagraphDispatcher
             num_tokens_across_dp[:] = num_tokens_padded
             num_scheduled_tokens = num_scheduled_tokens.repeat(num_reqs_padded)
+
+        if self.dynamic_eplb:
+            self.update_eplb_heat_collection_status(num_tokens_padded)
+
         # vllm-ascend does not support ubatch now
         ubatch_slices, ubatch_slices_padded = None, None
         attn_metadata: PerLayerAttnMetadata | None = None
-        # Build attention metadata for dummy_run
-        if self._should_build_dummy_attn_metadata(force_attention, is_profile, cudagraph_runtime_mode):
-            if create_mixed_batch:
-                raise NotImplementedError(
-                    "create_mixed_batch is used for warmup deepgemm, vllm-ascend does not need it"
-                )
-            self.attn_state = AscendAttentionState.DecodeOnly
-            if self.speculative_config and self.speculative_config.method == "mtp":
-                # `AscendAttentionState.SpecDecoding` is only designed for mla
-                if self.vllm_config.model_config.use_mla:
-                    self.attn_state = AscendAttentionState.SpecDecoding
+        with self.synchronize_input_prep():
+            # Build attention metadata for dummy_run
+            if self._should_build_dummy_attn_metadata(force_attention, is_profile, cudagraph_runtime_mode):
+                if create_mixed_batch:
+                    raise NotImplementedError(
+                        "create_mixed_batch is used for warmup deepgemm, vllm-ascend does not need it"
+                    )
+                self.attn_state = AscendAttentionState.DecodeOnly
+                if self.speculative_config and self.speculative_config.method == "mtp":
+                    # `AscendAttentionState.SpecDecoding` is only designed for mla
+                    if self.vllm_config.model_config.use_mla:
+                        self.attn_state = AscendAttentionState.SpecDecoding
+                    else:
+                        self.attn_state = AscendAttentionState.ChunkedPrefill
+                # The reason why we use a fixed seq_len rather than max_query_len is that
+                # _npu_paged_attention_get_workspace only returns max workspace with specific
+                # seq_lens. We use this seq_len only when capturing graph, and still use max_query_len
+                # in inference. This will be removed once npu_fused_infer_attention_score
+                # outperforms _npu_paged_attention on all cases.
+                if profile_seq_lens is not None:
+                    seq_lens = profile_seq_lens
                 else:
-                    self.attn_state = AscendAttentionState.ChunkedPrefill
-            # The reason why we use a fixed seq_len rather than max_query_len is that
-            # _npu_paged_attention_get_workspace only returns max workspace with specific
-            # seq_lens. We use this seq_len only when capturing graph, and still use max_query_len
-            # in inference. This will be removed once npu_fused_infer_attention_score
-            # outperforms _npu_paged_attention on all cases.
-            if profile_seq_lens is not None:
-                seq_lens = profile_seq_lens
-            else:
-                seq_lens = (
-                    SEQ_LEN_WITH_MAX_PA_WORKSPACE
-                    if is_graph_capturing and using_paged_attention(num_tokens, self.vllm_config)
-                    else max_query_len
-                )  # type: ignore[assignment]
-            self.optimistic_seq_lens_cpu[:num_reqs] = seq_lens
-            self.optimistic_seq_lens_cpu[num_reqs:].fill_(0)
-            self.seq_lens.copy_(self.optimistic_seq_lens_cpu, non_blocking=True)
+                    seq_lens = (
+                        SEQ_LEN_WITH_MAX_PA_WORKSPACE
+                        if is_graph_capturing and using_paged_attention(num_tokens, self.vllm_config)
+                        else max_query_len
+                    )  # type: ignore[assignment]
+                self.optimistic_seq_lens_cpu[:num_reqs] = seq_lens
+                self.optimistic_seq_lens_cpu[num_reqs:].fill_(0)
+                self.seq_lens.copy_(self.optimistic_seq_lens_cpu, non_blocking=True)
 
-            cum_num_tokens = self._get_cumsum_and_arange(num_scheduled_tokens, self.query_pos.np)
-            self.query_start_loc.np[1 : num_reqs_padded + 1] = cum_num_tokens
-            self.query_start_loc.copy_to_gpu()
-            if self._has_gdn:
-                self.gdn_query_start_loc.np[1 : num_reqs_padded + 1] = cum_num_tokens
-                self.gdn_query_start_loc.copy_to_gpu()
+                cum_num_tokens = self._get_cumsum_and_arange(num_scheduled_tokens, self.query_pos.np)
+                self.query_start_loc.np[1 : num_reqs_padded + 1] = cum_num_tokens
+                self.query_start_loc.copy_to_gpu()
+                if self._has_gdn:
+                    self.gdn_query_start_loc.np[1 : num_reqs_padded + 1] = cum_num_tokens
+                    self.gdn_query_start_loc.copy_to_gpu()
 
-            if not profile_cpp:
-                num_reqs_padded = self._pad_query_start_loc_for_fia(
-                    self.query_start_loc,
-                    num_tokens_padded,
-                    num_reqs_padded,
-                    num_reqs,
-                    cudagraph_runtime_mode,
-                    batch_desc.num_reqs,
+                if not profile_cpp:
+                    num_reqs_padded = self._pad_query_start_loc_for_fia(
+                        self.query_start_loc,
+                        num_tokens_padded,
+                        num_reqs_padded,
+                        num_reqs,
+                        cudagraph_runtime_mode,
+                        batch_desc.num_reqs,
+                    )
+
+                pad_attn = cudagraph_runtime_mode == CUDAGraphMode.FULL
+                attn_metadata, _ = self._build_attention_metadata(
+                    num_tokens=num_tokens_unpadded,
+                    num_tokens_padded=num_tokens_padded,
+                    num_reqs=num_reqs,
+                    num_reqs_padded=num_reqs_padded,
+                    max_query_len=max_query_len,
+                    ubatch_slices=ubatch_slices_padded if pad_attn else ubatch_slices,
+                    for_cudagraph_capture=is_graph_capturing,
+                    num_scheduled_tokens_np=num_scheduled_tokens,
                 )
-
-            pad_attn = cudagraph_runtime_mode == CUDAGraphMode.FULL
-            attn_metadata, _ = self._build_attention_metadata(
-                num_tokens=num_tokens_unpadded,
-                num_tokens_padded=num_tokens_padded,
-                num_reqs=num_reqs_padded,
-                max_query_len=max_query_len,
-                ubatch_slices=ubatch_slices_padded if pad_attn else ubatch_slices,
-                for_cudagraph_capture=is_graph_capturing,
-                num_scheduled_tokens_np=num_scheduled_tokens,
-            )
 
         with self.maybe_dummy_run_with_lora(
             self.lora_config,
@@ -333,10 +359,10 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
                     is_profile=is_profile,
                 )
             if is_profile and self.dynamic_eplb:
-                target = self.model.language_model if hasattr(self.model, "language_model") else self.model
-                target.clear_all_moe_loads()
-            if self.dynamic_eplb:
-                self.eplb_updator.forward_end()
+                self.eplb_updator.adaptor.clear_all_moe_loads()
+            if not is_profile and self.dynamic_eplb:
+                self.eplb_updator.forward_end(self.eplb_heat_collection_status)
+            self._finalize_dump_data(dump=False)
             return hidden_states, hidden_states
 
     def _model_forward(
@@ -375,11 +401,11 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
 
         if self.enable_enpu:
             # The soft segmentation scenario requires event.record first, then event.wait.
-            self._update_full_graph_params_if_needed(forward_context, num_tokens_padded, positions)
+            self._update_full_graph_params_if_needed(forward_context, num_tokens_padded)
             model_output = run_model()
         else:
             model_output = run_model()
-            self._update_full_graph_params_if_needed(forward_context, num_tokens_padded, positions)
+            self._update_full_graph_params_if_needed(forward_context, num_tokens_padded)
 
         # Omni-specific: wrap output if needed
         if not isinstance(model_output, OmniOutput) and hasattr(self.model, "make_omni_output"):
