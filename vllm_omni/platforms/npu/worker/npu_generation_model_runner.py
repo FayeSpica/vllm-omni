@@ -354,8 +354,12 @@ class NPUGenerationModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin
                 intermediate_tensors,
             )
 
+            #  -------------------------------------- Omni-new -------------------------------------------------
             # [Omni] Pass token counts per request for code2wav output slicing
             model_kwargs["seq_token_counts"] = tokens
+            if getattr(self.model, "requires_request_ids", False):
+                model_kwargs["request_ids"] = list(req_ids)
+            #  -------------------------------------- Omni-new -------------------------------------------------
 
             # update global cos, sin
             update_cos_sin(positions)
