@@ -49,7 +49,7 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
 
     def _update_states(self, scheduler_output) -> Any:
         """Mirror NPUModelRunner._update_states and
-           call OmniGPUModelRunner._update_states to update Omni-specific states.
+        call OmniGPUModelRunner._update_states to update Omni-specific states.
         """
         req_data = scheduler_output.scheduled_cached_reqs
 
@@ -226,6 +226,11 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
                         batch_desc.num_reqs,
                     )
 
+                # Dummy graph runs do not go through _prepare_inputs(), but GDN/Mamba
+                # metadata reads block_table[:num_reqs_padded] below. Sync padded
+                # rows as well so device-side metadata does not see stale block ids.
+                self.input_batch.block_table.commit_block_table(num_reqs_padded)
+
                 pad_attn = cudagraph_runtime_mode == CUDAGraphMode.FULL
                 attn_metadata, _ = self._build_attention_metadata(
                     num_tokens=num_tokens_unpadded,
@@ -237,6 +242,10 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
                     for_cudagraph_capture=is_graph_capturing,
                     num_scheduled_tokens_np=num_scheduled_tokens,
                 )
+                if not is_graph_capturing:
+                    for kv_cache_gid in range(len(self.kv_cache_config.kv_cache_groups)):
+                        blk_table = self.input_batch.block_table[kv_cache_gid]
+                        blk_table.slot_mapping.gpu.fill_(-1)
 
         with self.maybe_dummy_run_with_lora(
             self.lora_config,
@@ -316,6 +325,9 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
                 aclgraph_runtime_mode=cudagraph_runtime_mode,
                 batch_descriptor=batch_desc,
                 model_instance=self.model,
+                has_sinks=self._has_sinks,
+                input_ids=input_ids,
+                eplb_heat_collection_status=self.eplb_heat_collection_status if self.dynamic_eplb else False,
             ):
                 # ---------------------------------------Omni-new----------------------------------------------
                 if getattr(self.model, "talker", None) is not None and self.has_talker_mtp:
@@ -346,7 +358,7 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
             # ---------------------------------------Omni-new----------------------------------------------
             dummy_compute_logits(hidden_states)
 
-            if self.drafter:
+            if self.drafter and not profile_cpp:
                 self.drafter.dummy_run(
                     num_tokens=num_tokens_padded,
                     with_prefill=with_prefill,
