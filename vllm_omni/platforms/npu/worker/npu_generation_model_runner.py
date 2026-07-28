@@ -33,6 +33,7 @@ from vllm_ascend.ops.rotary_embedding import update_cos_sin
 from vllm_ascend.utils import enable_sp, lmhead_tp_enable
 from vllm_ascend.worker.model_runner_v1 import SEQ_LEN_WITH_MAX_PA_WORKSPACE
 
+from vllm_omni.distributed.omni_connectors.utils.config import get_stage_connector_role
 from vllm_omni.outputs import OmniModelRunnerOutput
 from vllm_omni.platforms.npu.worker.npu_ar_model_runner import ExecuteModelState, _ensure_tensor_values
 from vllm_omni.platforms.npu.worker.npu_model_runner import OmniNPUModelRunner
@@ -46,6 +47,10 @@ class NPUGenerationModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._async_chunk = getattr(self.model_config, "async_chunk", False)
+        #  -------------------------------------- Omni-new -------------------------------------------------
+        # Mirrors the init allowlist in gpu_generation_model_runner.py. The
+        # connector-role fallback keeps consumer stages whose arch is not on the
+        # allowlist (e.g. MiniCPM-o 4.5 stage 2) from starving on input.
         _OMNI_CONNECTOR_INIT_ARCHS = {
             "Qwen3OmniMoeForConditionalGeneration",
             "Qwen2_5OmniForConditionalGeneration",
@@ -53,14 +58,20 @@ class NPUGenerationModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin
             "MiMoAudioModel",
             "Qwen3TTSTalkerForConditionalGeneration",
             "Qwen3TTSCode2Wav",
+            "AudexCode2Wav",
+            "AudexXCodec1",
             "CosyVoice3Model",
             "DyninOmniForConditionalGeneration",
             "IndexTTS2S2MelDecoder",
         }
-        if getattr(self.model_config, "model_arch", None) in _OMNI_CONNECTOR_INIT_ARCHS:
+        if (
+            getattr(self.model_config, "model_arch", None) in _OMNI_CONNECTOR_INIT_ARCHS
+            or get_stage_connector_role(self.model_config) is not None
+        ):
             self.init_omni_connectors(
                 model_config=self.model_config,
             )
+        #  -------------------------------------- Omni-new -------------------------------------------------
 
     def _update_request_states(self, scheduler_output: SchedulerOutput):
         # remove requests
@@ -143,6 +154,11 @@ class NPUGenerationModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin
             with self.synchronize_input_prep():
                 # Update persistent batch states.
                 deferred_state_corrections_fn = self._update_states(scheduler_output)
+
+                #  -------------------------------------- Omni-new -------------------------------------------------
+                if scheduler_output.finished_req_ids and hasattr(self.model, "on_requests_finished"):
+                    self.model.on_requests_finished(scheduler_output.finished_req_ids)
+                #  -------------------------------------- Omni-new -------------------------------------------------
 
                 if has_ec_transfer() and get_ec_transfer().is_producer:
                     self._start_dump_data()
@@ -837,6 +853,7 @@ class NPUGenerationModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin
             if hasattr(self.model, "get_dummy_runtime_additional_information"):
                 runtime_addi = self.model.get_dummy_runtime_additional_information(num_reqs)
                 model_kwargs["runtime_additional_information"] = runtime_addi
+            model_kwargs["seq_token_counts"] = [int(num_tokens_padded)]
             # -------------------------------------- Omni-new -------------------------------------------------
 
             if self.uses_mrope:

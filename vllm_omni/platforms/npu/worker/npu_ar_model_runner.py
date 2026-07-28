@@ -44,7 +44,10 @@ from vllm_ascend.worker.model_runner_v1 import graph_capture
 
 from vllm_omni.data_entry_keys import flatten_payload
 from vllm_omni.distributed.omni_connectors.kv_transfer_manager import OmniKVTransferManager
-from vllm_omni.distributed.omni_connectors.utils.config import stage_sends_async_output
+from vllm_omni.distributed.omni_connectors.utils.config import (
+    get_stage_connector_role,
+    stage_sends_async_output,
+)
 from vllm_omni.outputs import OmniModelRunnerOutput
 from vllm_omni.platforms.npu.worker.npu_model_runner import OmniNPUModelRunner
 from vllm_omni.utils.mm_outputs import build_mm_cpu, partition_payload_list, to_payload_element
@@ -115,6 +118,7 @@ class NPUARModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin):
         # Initialize KV cache manager (preserve vllm_config fallback behavior)
         self.kv_transfer_manager = OmniKVTransferManager.from_vllm_config(self.vllm_config, self.model_config)
         self._async_chunk = getattr(self.model_config, "async_chunk", False)
+        #  -------------------------------------- Omni-new -------------------------------------------------
         _OMNI_CONNECTOR_INIT_ARCHS = {
             "Qwen3OmniMoeForConditionalGeneration",
             "Qwen2_5OmniForConditionalGeneration",
@@ -126,12 +130,17 @@ class NPUARModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin):
             "DyninOmniForConditionalGeneration",
             "IndexTTS2TalkerForConditionalGeneration",
         }
-        if getattr(self.model_config, "model_arch", None) in _OMNI_CONNECTOR_INIT_ARCHS:
+        stage_archs = set(getattr(self.model_config, "architectures", None) or ())
+        model_arch_override = getattr(self.model_config, "model_arch", None)
+        if model_arch_override:
+            stage_archs.add(model_arch_override)
+        if stage_archs & _OMNI_CONNECTOR_INIT_ARCHS or get_stage_connector_role(self.model_config) is not None:
             self.init_omni_connectors(
                 model_config=self.model_config,
                 kv_transfer_manager=self.kv_transfer_manager,
             )
         self._downstream_payload_cache: dict[str, bool] = {}
+        #  -------------------------------------- Omni-new -------------------------------------------------
 
     def _make_buffer(self, *size, dtype, numpy=True):
         # Prevent ray from pinning the buffer due to large size
@@ -210,6 +219,35 @@ class NPUARModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin):
         model = getattr(self, "model", None)
         return bool(getattr(model, "requires_full_prefix_cached_hidden_states", True))
 
+    def _deferred_prefix_cache_mm_keys(self) -> set[str]:
+        """Model-declared multimodal keys whose prefix-cache writes are deferred."""
+        model = getattr(self, "model", None)
+        keys = getattr(model, "deferred_prefix_cache_mm_keys", ())
+        return set(keys or ())
+
+    def _stage_deferred_prefix_cache_mm_outputs(
+        self,
+        *,
+        scheduler_output: SchedulerOutput,
+        multimodal_outputs: Any,
+        query_start_loc_cpu: Any,
+    ) -> None:
+        """See gpu_ar_model_runner._stage_deferred_prefix_cache_mm_outputs."""
+        if self.omni_prefix_cache is None:
+            return
+
+        deferred_mm_cache_keys = self._deferred_prefix_cache_mm_keys()
+        if not deferred_mm_cache_keys:
+            return
+
+        self.omni_prefix_cache.stage_deferred_mm_outputs(
+            query_start_loc=query_start_loc_cpu,
+            input_batch=self.input_batch,
+            multimodal_outputs=flatten_payload(multimodal_outputs) if multimodal_outputs else multimodal_outputs,
+            num_scheduled_tokens=scheduler_output.num_scheduled_tokens,
+            deferred_mm_cache_keys=deferred_mm_cache_keys,
+        )
+
     def _maybe_update_prefix_cache(
         self,
         hidden_states: torch.Tensor,
@@ -218,19 +256,16 @@ class NPUARModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin):
         num_tokens_padded: int,
     ):
         if self.omni_prefix_cache is not None and get_pp_group().is_last_rank:
-            if multimodal_outputs is not None and not isinstance(multimodal_outputs, Mapping):
-                logger.warning_once(
-                    "prefix caching expects mm outputs to be a dict, but got %s",
-                    type(multimodal_outputs),
-                )
-
             hs_for_cache = hidden_states if self._model_needs_full_prefix_hidden_states() else None
+            slot_mapping_gpu = self.input_batch.block_table[0].slot_mapping.gpu
+            slot_mapping_cpu = slot_mapping_gpu[:num_tokens_padded].cpu()
             self.omni_prefix_cache.update_omni_tensor_prefix_cache(
                 hidden_states=hs_for_cache,
                 multimodal_outputs=flatten_payload(multimodal_outputs) if multimodal_outputs else multimodal_outputs,
                 num_tokens_unpadded=num_tokens_unpadded,
-                slot_mapping=self.input_batch.block_table[0].slot_mapping.cpu,
+                slot_mapping=slot_mapping_cpu,
                 num_tokens_padded=num_tokens_padded,
+                skip_mm_cache_keys=self._deferred_prefix_cache_mm_keys(),
             )
 
     def _maybe_get_combined_prefix_cache_tensors(
@@ -241,6 +276,11 @@ class NPUARModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin):
     ) -> tuple[dict[str, torch.Tensor] | None, dict | None]:
         combined_hidden_states, combined_multimodal_outputs = None, None
         if self.omni_prefix_cache is not None:
+            if (
+                not self._model_needs_full_prefix_hidden_states()
+                and not self.omni_prefix_cache.has_prefix_cached_new_req_ids()
+            ):
+                return None, None
             if self._model_needs_full_prefix_hidden_states():
                 combined_hidden_states = self.omni_prefix_cache.get_merged_hidden_states(
                     query_start_loc=self.query_start_loc.cpu,
@@ -412,6 +452,11 @@ class NPUARModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin):
                 if flush_ids:
                     self.flush_full_payload_outputs(flush_ids)
 
+        if self.omni_prefix_cache is not None and scheduler_output.finished_req_ids:
+            self.omni_prefix_cache.commit_deferred_mm_outputs(
+                set(scheduler_output.finished_req_ids),
+                self.input_batch,
+            )
         # self._draft_token_ids is None when `input_fits_in_drafter=False`
         # and there is no draft tokens scheduled. so it need to update the
         # spec_decoding info in scheduler_output with async_scheduling.
@@ -1084,6 +1129,12 @@ class NPUARModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin):
         query_start_loc_cpu = self.query_start_loc.cpu
         if callable(query_start_loc_cpu):
             query_start_loc_cpu = query_start_loc_cpu()
+
+        self._stage_deferred_prefix_cache_mm_outputs(
+            scheduler_output=scheduler_output,
+            multimodal_outputs=multimodal_outputs,
+            query_start_loc_cpu=query_start_loc_cpu,
+        )
 
         pooler_output: list[dict[str, object]] | None = None
         if needs_pooler_payload:

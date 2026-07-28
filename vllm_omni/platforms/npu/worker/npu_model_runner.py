@@ -20,6 +20,7 @@ from vllm_ascend.ops.rotary_embedding import update_cos_sin
 from vllm_ascend.utils import enable_sp, lmhead_tp_enable
 from vllm_ascend.worker.model_runner_v1 import SEQ_LEN_WITH_MAX_PA_WORKSPACE
 
+from vllm_omni.core.prefix_cache import OmniTensorPrefixCache
 from vllm_omni.model_executor.models.output_templates import OmniOutput
 from vllm_omni.platforms.npu._310p import is_310p
 from vllm_omni.worker.gpu_model_runner import OmniGPUModelRunner
@@ -34,6 +35,37 @@ else:
 
 
 class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
+    def initialize_kv_cache(self, kv_cache_config) -> None:
+        """Create the omni tensor prefix cache.
+
+        The omni prefix cache is used to store the hidden states of the prefix tokens
+        """
+        NPUModelRunner.initialize_kv_cache(self, kv_cache_config)
+        if self.omni_prefix_cache is None and self.cache_config.enable_prefix_caching:
+            # Read num_blocks back off self.kv_cache_config: vllm-ascend
+            # deepcopies the config it was handed, so the value it stored is the
+            # authoritative one, not our caller's argument.
+            num_blocks = self.kv_cache_config.num_blocks
+            self.omni_prefix_cache = OmniTensorPrefixCache(
+                num_blocks=num_blocks,
+                block_size=self.cache_config.block_size,
+                hidden_size=self.model_config.get_hidden_size(),
+                hs_dtype=self.dtype,
+            )
+            logger.info(
+                "Initialized omni prefix cache on NPU (num_blocks=%d, block_size=%d, hidden_size=%d). "
+                "Hidden-state cache is pinned host memory of roughly %.1f GiB; each per-token "
+                "multimodal output key allocates another tensor of the same block shape.",
+                num_blocks,
+                self.cache_config.block_size,
+                self.model_config.get_hidden_size(),
+                num_blocks
+                * self.cache_config.block_size
+                * self.model_config.get_hidden_size()
+                * self.dtype.itemsize
+                / (1024**3),
+            )
+
     def load_model(self, *args, **kwargs) -> None:
         if is_310p():
             from vllm_omni.platforms.npu._310p.patch import apply_model_patches
@@ -44,8 +76,19 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
         # in _pad_for_sequence_parallelism during execute_model.
         # This is a workaround for vllm-ascend not passing vllm_config to enable_sp().
         enable_sp(self.vllm_config)
+        # ---------------------------------------Omni-new----------------------------------------------
+        model = getattr(self, "model", None)
+        override_fn = None
+        if bool(getattr(model, "supports_sampled_token_ids_cpu_override", False)):
+            candidate = getattr(model, "consume_sampled_token_ids_cpu_override", None)
+            if callable(candidate):
+                override_fn = candidate
+        self._sampled_token_ids_cpu_override = override_fn
+        self._omni_query_start_loc_model_kwarg = bool(getattr(model, "supports_omni_query_start_loc", False))
         self._maybe_enable_output_token_ids_for_model_sampler()
         self._init_talker_mtp()
+        self._prewarm_attention_capture_workspaces()
+        # ---------------------------------------Omni-new----------------------------------------------
 
     def _update_states(self, scheduler_output) -> Any:
         """Mirror NPUModelRunner._update_states and
@@ -259,15 +302,24 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
         ):
             # Make sure padding doesn't exceed max_num_tokens
             assert num_tokens_padded <= self.max_num_tokens
-            if getattr(getattr(self, "model", None), "has_preprocess", False):
-                input_ids = self.input_ids.gpu[:num_tokens_padded]
-                inputs_embeds = self.inputs_embeds.gpu[:num_tokens_padded]
-            elif self.supports_mm_inputs and not self.model_config.is_encoder_decoder or self.enable_prompt_embeds:
+            # ---------------------------------------Omni-new----------------------------------------------
+            model_kwargs = self._init_model_kwargs()
+            if self.supports_mm_inputs and not self.model_config.is_encoder_decoder:
+                input_ids, inputs_embeds = self._prepare_mm_inputs(num_tokens_padded)
+                model_kwargs = {
+                    **model_kwargs,
+                    **self._dummy_mm_kwargs(num_reqs),
+                }
+            elif self.enable_prompt_embeds:
                 input_ids = None
+                inputs_embeds = self.inputs_embeds.gpu[:num_tokens_padded]
+            elif getattr(getattr(self, "model", None), "has_preprocess", False):
+                input_ids = self.input_ids.gpu[:num_tokens_padded]
                 inputs_embeds = self.inputs_embeds.gpu[:num_tokens_padded]
             else:
                 input_ids = self.input_ids.gpu[:num_tokens_padded]
                 inputs_embeds = None
+            # ---------------------------------------Omni-new----------------------------------------------
 
             if self.uses_mrope:
                 positions = self.mrope_positions.gpu[:, :num_tokens_padded]
@@ -347,6 +399,7 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
                     positions=positions,
                     intermediate_tensors=intermediate_tensors,
                     inputs_embeds=inputs_embeds,
+                    **model_kwargs,
                 )
                 # ---------------------------------------Omni-new----------------------------------------------
             if self.use_aux_hidden_state_outputs:
