@@ -1011,7 +1011,7 @@ class OmniDiffusionConfig:
 
         # when use hf offline, replace model to local model path
         # align with ar stage behavior, see vllm/engine/arg_utils.py
-        if huggingface_hub.constants.HF_HUB_OFFLINE:
+        if huggingface_hub.constants.HF_HUB_OFFLINE and self.model:
             model_id = self.model
             self.model = get_model_path(self.model, self.revision)
             if model_id != self.model:

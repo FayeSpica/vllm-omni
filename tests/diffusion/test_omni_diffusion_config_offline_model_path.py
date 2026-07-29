@@ -49,3 +49,12 @@ class TestOmniDiffusionConfigOfflineModelPath:
         local = str(tmp_path)
         config = OmniDiffusionConfig(model=local)
         assert config.model == local
+
+    @pytest.mark.parametrize("model", [None, ""])
+    def test_offline_empty_model_unchanged(
+        self, monkeypatch: pytest.MonkeyPatch, record_get_model_path, model: str | None
+    ) -> None:
+        monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_OFFLINE", True)
+        config = OmniDiffusionConfig(model=model)
+        assert config.model == model
+        assert record_get_model_path == []
