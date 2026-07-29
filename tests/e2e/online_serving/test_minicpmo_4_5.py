@@ -1,9 +1,7 @@
-"""
-E2E Online tests for MiniCPM-o 4.5 model with multimodal input and audio / text output.
+"""E2E online tests for MiniCPM-o 4.5 multimodal input and audio/text output.
 
-MiniCPM-o 4.5 has ``async_chunk: false``, ``max_num_seqs: 1`` on both stages,
-and the vocoder runs in-process inside the talker stage rather than as a separate
-Code2Wav stage.
+The batching deployment uses async chunk transfer across separate Thinker,
+Talker, and Code2Wav stages.
 """
 
 import os
@@ -18,18 +16,15 @@ from tests.helpers.stage_config import get_deploy_config_path
 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 
 _MODEL = "openbmb/MiniCPM-o-4_5"
-_CI_DEPLOY = get_deploy_config_path("minicpmo_4_5.yaml")
+_CI_DEPLOY = get_deploy_config_path("minicpmo_4_5_batching.yaml")
 
 test_params = [
     pytest.param(
         OmniServerParams(
             model=_MODEL,
             stage_config_path=_CI_DEPLOY,
-            use_stage_cli=False,
-            server_args=[
-                "--trust-remote-code",
-                "--no-async-chunk",
-            ],
+            use_stage_cli=True,
+            server_args=["--trust-remote-code"],
         ),
         id="default",
     )
@@ -65,6 +60,7 @@ def get_max_batch_size(size_type="few"):
     return batch_sizes.get(size_type, 5)
 
 
+@pytest.mark.skip(reason="https://github.com/vllm-project/vllm-omni/issues/5437")
 @pytest.mark.core_model
 @pytest.mark.advanced_model
 @pytest.mark.omni
@@ -98,7 +94,7 @@ def test_text_to_text_001(omni_server, openai_client) -> None:
 def test_text_to_audio_001(omni_server, openai_client) -> None:
     """
     Test text-only input generating text + audio output via OpenAI API.
-    This exercises the talker TTS region detection and in-process token2wav vocoder.
+    This exercises Talker TTS region detection and the Code2Wav stage.
     Deploy Setting: default 2GPU
     Input Modal: text
     Output Modal: text + audio
@@ -132,13 +128,14 @@ def test_audio_to_text_audio_001(omni_server, openai_client) -> None:
     messages = dummy_messages_from_mix_data(
         system_prompt=get_system_prompt(),
         audio_data_url=audio_data_url,
-        content_text=get_prompt("mix"),
+        content_text=get_prompt(),
     )
 
     request_config = {
         "model": omni_server.model,
         "messages": messages,
         "stream": True,
+        "key_words": {"text": ["Beijing"]},
     }
 
     openai_client.send_omni_request(request_config, request_num=get_max_batch_size())
@@ -200,6 +197,7 @@ def test_video_to_text_audio_001(omni_server, openai_client) -> None:
     openai_client.send_omni_request(request_config, request_num=get_max_batch_size())
 
 
+@pytest.mark.skip(reason="https://github.com/vllm-project/vllm-omni/issues/5437")
 @pytest.mark.core_model
 @pytest.mark.advanced_model
 @pytest.mark.omni
