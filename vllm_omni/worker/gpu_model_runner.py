@@ -395,6 +395,9 @@ class OmniGPUModelRunner(GPUModelRunner):
         class attribute.  When set, ``get_mrope_input_positions`` is expected
         to return positions covering **both** prefill and decode tokens.
         """
+        # Refresh any request whose mrope_positions lags behind its live prompt.
+        self._refresh_stale_mrope_positions()
+
         # Run upstream logic (handles prompt positions + linear decode fallback)
         super()._calc_mrope_positions(scheduler_output)
 
@@ -403,6 +406,32 @@ class OmniGPUModelRunner(GPUModelRunner):
             return
 
         self._fixup_precomputed_mrope_decode_positions(scheduler_output)
+
+    def _refresh_stale_mrope_positions(self) -> None:
+        """Recompute M-RoPE positions for requests with in-place grown prompts.
+
+        Streaming chunk re-feeds (async-chunk mode) grow ``prompt_token_ids``
+        in place, then restore the request to its origin queue:
+
+        * WAITING — re-scheduled as a new request, so
+          ``_update_streaming_request`` re-inits ``mrope_positions``. Fine.
+        * RUNNING — re-scheduled via ``scheduled_cached_reqs``, which skips
+          that re-init, leaving ``mrope_positions`` at the pre-extend width.
+          Upstream ``_calc_mrope_positions`` then slices past the stale
+          tensor: "[3, N] vs [3, 0]" RuntimeError.
+
+        Only the RUNNING case is stale here; WAITING fails the check below.
+        """
+        from vllm.utils import length_from_prompt_token_ids_or_embeds
+
+        for req_id in self.input_batch.req_ids:
+            req = self.requests[req_id]
+            if req.mrope_positions is None:
+                continue
+            cur_prompt_len = length_from_prompt_token_ids_or_embeds(req.prompt_token_ids, req.prompt_embeds)
+            if req.mrope_positions.shape[1] < cur_prompt_len:
+                self._init_mrope_positions(req)
+                req.num_prompt_tokens = cur_prompt_len
 
     def _fixup_precomputed_mrope_decode_positions(self, scheduler_output: "SchedulerOutput") -> None:
         """Overwrite linear decode M-RoPE positions with pre-computed ones.
