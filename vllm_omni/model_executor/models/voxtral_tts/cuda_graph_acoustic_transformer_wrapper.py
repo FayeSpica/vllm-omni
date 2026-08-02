@@ -211,8 +211,8 @@ class CUDAGraphAcousticTransformerWrapper:
         if current_omni_platform.is_npu():
             torch.npu.synchronize(device)
             graph = torch.npu.NPUGraph()
-            with torch.inference_mode():
-                with torch.npu.graph(graph, pool=torch.npu.graph_pool_handle()):
+            with torch.no_grad():
+                with torch.npu.graph(graph, pool=current_platform.get_global_graph_pool()):
                     static_fake_eos, static_audio_codes = self._forward_cudagraph_compatible(
                         static_input, cfg_alpha=static_cfg_alpha, noise=static_noise
                     )
