@@ -287,3 +287,65 @@ CUTLASS was the fastest validated backend for this checkpoint.
 - The benchmark table intentionally reports Qwen-Image-2512 as
   concurrency-1 request-level data; do not compare it directly with an online
   HTTP concurrency benchmark.
+
+## NPU
+
+### 4x Ascend A3 (starting point — community validation pending)
+
+`QwenImagePipeline` has no Ascend-validated configuration in the repository
+yet (the Ascend NPU column in
+[`docs/models/supported_models.md`](../../docs/models/supported_models.md) is
+empty for Qwen-Image / Qwen-Image-2512). The layout below is derived from the
+same-family `QwenImageEditPlusPipeline` (Qwen-Image-Edit-2511), which **is**
+exercised on Ascend by the NPU nightly CI — treat it as a starting point,
+not a validated configuration.
+
+#### Environment
+
+- Driver / runtime: Ascend NPU driver with CANN toolkit
+- `DIFFUSION_ATTENTION_BACKEND=TORCH_SDPA`
+
+#### Command
+
+```bash
+export DIFFUSION_ATTENTION_BACKEND=TORCH_SDPA
+
+vllm serve Qwen/Qwen-Image-2512 --omni \
+  --trust-remote-code \
+  --host 0.0.0.0 \
+  --port 8091 \
+  --ulysses-degree 2 \
+  --cfg-parallel-size 2 \
+  --vae-patch-parallel-size 4 \
+  --vae-use-tiling
+```
+
+Single-NPU serving (no parallelism flags) is the fallback if the multi-card
+layout hits issues on your CANN version:
+
+```bash
+export DIFFUSION_ATTENTION_BACKEND=TORCH_SDPA
+
+vllm serve Qwen/Qwen-Image-2512 --omni --port 8091
+```
+
+#### Verification
+
+Same client and curl smoke tests as the GPU section above. Once you have a
+successful run on Ascend, please open a PR to flip this section to validated
+and add the Ascend NPU checkmark for `QwenImagePipeline` in
+`docs/models/supported_models.md`.
+
+#### Notes
+
+- `--cfg-parallel-size 2` parallelizes the positive/negative CFG branches and
+  only pays off when `true_cfg_scale > 1`; drop it for CFG-distilled usage.
+- Cache-DiT (`--cache-backend cache_dit`) is the fastest measured config for
+  this model family on 4x H100 (see
+  [`Qwen-Image-Edit-2511.md`](./Qwen-Image-Edit-2511.md)); on Ascend it is
+  being validated by the nightly CI for the Edit-2511 sibling first — adopt
+  it here only after that validation lands, with
+  `CACHE_DIT_VERSION=1.3.0` pinned.
+- The ModelOpt mixed FP8/NVFP4 quantized path (2x B200 section above) is
+  CUDA-only; do not use `--linear-backend cutlass` / `--force-cutlass-fp8`
+  on NPU.

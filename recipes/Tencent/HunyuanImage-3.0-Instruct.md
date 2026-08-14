@@ -378,3 +378,58 @@ thresholds are `SSIM >= 0.20` and `PSNR >= 10.0`.
 - `--force-cutlass-fp8` keeps the FP8 dense layers on the CUTLASS FP8 path.
 - The benchmark table is an online HTTP concurrency-16 result; do not compare
   it directly with loaded-once request-level benchmarks.
+
+
+## NPU
+
+### 4x Ascend A3
+
+The DiT deploy config ships an NPU platform delta
+(`vllm_omni/deploy/hunyuan_image3_dit.yaml` → `platforms.npu`: stage 0 on
+devices `0,1,2,3`, `gpu_memory_utilization: 0.65`,
+`max_num_batched_tokens: 32768`), so the same `vllm serve` commands run on
+Ascend with the platform overrides merged automatically. The NPU nightly CI
+(`.buildkite/npu/test-npu-nightly.yml`) exercises the three 4-GPU parallel
+layouts from the GPU section above.
+
+#### Environment
+
+- Driver / runtime: Ascend NPU driver with CANN toolkit
+- `DIFFUSION_ATTENTION_BACKEND=TORCH_SDPA` (set by the nightly steps)
+
+#### Command
+
+Fastest layout from the GPU benchmarks (`tp2_cfgp2`), BF16 on 4 NPUs:
+
+```bash
+export DIFFUSION_ATTENTION_BACKEND=TORCH_SDPA
+
+vllm serve tencent/HunyuanImage-3.0-Instruct --omni \
+  --trust-remote-code \
+  --host 0.0.0.0 \
+  --port 8091 \
+  --deploy-config vllm_omni/deploy/hunyuan_image3_dit.yaml \
+  --tensor-parallel-size 2 \
+  --cfg-parallel-size 2 \
+  --vae-patch-parallel-size 4 \
+  --vae-use-tiling
+```
+
+Alternative layouts validated by the nightly CI: TP=2 + Ulysses SP=2
+(`--tensor-parallel-size 2 --ulysses-degree 2`) and TP=4
+(`--tensor-parallel-size 4`).
+
+#### Notes
+
+- The deploy config already sets `enforce_eager: true`; keep it — graph mode
+  is not part of the validated recipe.
+- `--quantization fp8` is validated on H100/H800 (and via the XPU platform
+  delta) but is **not** part of the NPU platform delta yet; run BF16 on
+  Ascend until online FP8 is verified on NPU.
+- Nightly reference workload: `1024x1024`, `num_inference_steps=8`
+  (`tests/dfx/perf/tests/test_hunyuan_image_tp2_cfgp2.json`,
+  `test_hunyuan_image_tp2_sp2.json`, `test_hunyuan_image_tp4.json`).
+- Pixel-accuracy validation on Ascend:
+  `tests/e2e/accuracy/test_hunyuan_image3_pixel_accuracy.py`
+  (`HUNYUAN_IMAGE3_MODEL=tencent/HunyuanImage-3.0-Instruct`,
+  `HUNYUAN_IMAGE3_DEVICES=0,1,2,3`).
