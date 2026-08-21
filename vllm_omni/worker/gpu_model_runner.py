@@ -395,6 +395,7 @@ class OmniGPUModelRunner(GPUModelRunner):
         class attribute.  When set, ``get_mrope_input_positions`` is expected
         to return positions covering **both** prefill and decode tokens.
         """
+        # NOTE: This is a temporary fix, not the final solution, see #5234 for more info.
         # Refresh any request whose mrope_positions lags behind its live prompt.
         self._refresh_stale_mrope_positions()
 
