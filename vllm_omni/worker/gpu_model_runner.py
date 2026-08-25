@@ -429,14 +429,30 @@ class OmniGPUModelRunner(GPUModelRunner):
         """
         from vllm.utils import length_from_prompt_token_ids_or_embeds
 
-        for req_id in self.input_batch.req_ids:
+        for req_index, req_id in enumerate(self.input_batch.req_ids):
             req = self.requests[req_id]
             if req.mrope_positions is None:
                 continue
             cur_prompt_len = length_from_prompt_token_ids_or_embeds(req.prompt_token_ids, req.prompt_embeds)
             if req.mrope_positions.shape[1] < cur_prompt_len:
                 self._init_mrope_positions(req)
+                # Keep req.num_prompt_tokens and the persistent batch in step
+                # with refreshed M-RoPE width.
                 req.num_prompt_tokens = cur_prompt_len
+                self.input_batch.num_prompt_tokens[req_index] = cur_prompt_len
+                self.input_batch.num_tokens_no_spec[req_index] = max(
+                    int(self.input_batch.num_tokens_no_spec[req_index]), cur_prompt_len
+                )
+                if req.prompt_token_ids is not None:
+                    prompt_is_token_ids = getattr(req, "prompt_is_token_ids", None)
+                    self.input_batch.token_ids_cpu[req_index, :cur_prompt_len] = req.prompt_token_ids
+                    self.input_batch.is_token_ids[req_index, :cur_prompt_len] = (
+                        prompt_is_token_ids if prompt_is_token_ids is not None else True
+                    )
+                else:
+                    self.input_batch.is_token_ids[req_index, :cur_prompt_len] = False
+                if req.prompt_embeds is not None:
+                    self.input_batch.req_prompt_embeds[req_index] = req.prompt_embeds
 
     def _fixup_precomputed_mrope_decode_positions(self, scheduler_output: "SchedulerOutput") -> None:
         """Overwrite linear decode M-RoPE positions with pre-computed ones.
