@@ -825,25 +825,21 @@ def test_calc_mrope_positions_ok_after_grown_prompt(monkeypatch):
     runner, req = _make_grown_prompt_runner(8, 5)  # prompt 8 -> 13
 
     def fake_init_mrope(r):
-        r.mrope_positions = torch.arange(
-            len(r.prompt_token_ids), dtype=torch.int64
-        ).view(1, -1).expand(3, -1).contiguous()
+        r.mrope_positions = (
+            torch.arange(len(r.prompt_token_ids), dtype=torch.int64).view(1, -1).expand(3, -1).contiguous()
+        )
 
     monkeypatch.setattr(runner, "_init_mrope_positions", fake_init_mrope)
 
     # Round 1: digest the 5 newly-gained prompt tokens (8 -> 13).
-    OmniGPUModelRunner._calc_mrope_positions(
-        runner, SimpleNamespace(num_scheduled_tokens={"request1": 5})
-    )
+    OmniGPUModelRunner._calc_mrope_positions(runner, SimpleNamespace(num_scheduled_tokens={"request1": 5}))
 
     # The scheduler records the fully-computed prompt length.
     runner.input_batch.num_computed_tokens_cpu[0] = len(req.prompt_token_ids)  # 13
 
     # Round 2: the prompt grows again in place (13 -> 15).
     req.prompt_token_ids.extend(list(range(13, 15)))
-    OmniGPUModelRunner._calc_mrope_positions(
-        runner, SimpleNamespace(num_scheduled_tokens={"request1": 2})
-    )
+    OmniGPUModelRunner._calc_mrope_positions(runner, SimpleNamespace(num_scheduled_tokens={"request1": 2}))
 
     # After round 2 the batch must cover all 15 staged prompt tokens.
     assert int(runner.input_batch.num_tokens_no_spec[0]) == 15
