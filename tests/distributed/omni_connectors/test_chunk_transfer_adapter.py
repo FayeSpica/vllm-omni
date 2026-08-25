@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
 
 import threading
 from collections import deque
@@ -9,9 +9,10 @@ from unittest.mock import Mock, patch
 import pytest
 import torch
 from pytest_mock import MockerFixture
+from vllm.sampling_params import SamplingParams
 from vllm.v1.core.sched.scheduler import Scheduler as VLLMScheduler
 from vllm.v1.metrics.stats import PrefillStats, PromptTokenStats
-from vllm.v1.request import RequestStatus
+from vllm.v1.request import Request, RequestStatus
 
 from vllm_omni.core.sched.omni_ar_scheduler import OmniARScheduler
 from vllm_omni.core.sched.omni_generation_scheduler import OmniGenerationScheduler
@@ -208,6 +209,55 @@ def test_load_poll(build_adapter):
     assert "req-1" not in adapter._pending_load_reqs
 
 
+def test_load_poll_ar_requeues_explicitly_replaced_running_prompt(build_adapter):
+    adapter, connector = build_adapter(stage_id=1, model_mode="ar")
+    request = _req("req-replace", RequestStatus.RUNNING, external_req_id="external-replace")
+    request.resumable = True
+    request.prompt_token_ids = [0] * 4
+    request._all_token_ids = [0] * 4
+    request._output_token_ids = []
+    request.num_prompt_tokens = 4
+    request.num_computed_tokens = 4
+    request.update_block_hashes = Mock()
+    adapter.get_req_chunk[request.request_id] = 1
+    adapter.requests_num_chunks_sent[request.external_req_id] = 4
+    adapter.request_ids_mapping[request.request_id] = request.external_req_id
+    connector.get.return_value = (
+        {
+            "ids": {"prompt": [1]},
+            "meta": {
+                "next_stage_prompt_len": 10,
+                "replace_streaming_prompt": True,
+                "finished": False,
+            },
+        },
+        1,
+    )
+
+    assert adapter._poll_single_request(request) is True
+    assert request.num_computed_tokens == 0
+    assert request.prompt_token_ids == [0] * 10
+    assert request.request_id in adapter.replaced_streaming_prompt_ids
+
+    request.status = RequestStatus.WAITING_FOR_CHUNK
+    running_queue = [request]
+    waiting_queue = DummyWaitingQueue()
+    adapter.process_pending_chunks(waiting_queue, running_queue)
+    assert running_queue == []
+    assert waiting_queue == [request]
+    assert request.status == RequestStatus.WAITING
+
+    adapter.requests_num_chunks_sent[request.external_req_id] = 9
+    adapter.postprocess_scheduler_output(
+        SimpleNamespace(
+            scheduled_new_reqs=[SimpleNamespace(req_id=request.request_id)],
+            scheduled_cached_reqs=SimpleNamespace(req_ids=[]),
+        )
+    )
+    assert request.request_id not in adapter.replaced_streaming_prompt_ids
+    assert request.external_req_id not in adapter.requests_num_chunks_sent
+
+
 def test_load_poll_generation_tensor_codes_use_placeholder_prompt(build_adapter):
     adapter, connector = build_adapter(stage_id=1, model_mode="generation")
     request = _req("req-tensor", RequestStatus.WAITING, external_req_id="external-tensor")
@@ -286,6 +336,121 @@ def test_save_async_uses_confirmed_tokens_for_async_scheduler_watermark(build_ad
 
     assert adapter.requests_num_chunks_sent["external-async"] == 8
     assert len(adapter._pending_save_reqs) == 1
+
+
+def test_segment_boundary_starts_new_send_watermark_before_background_flush(build_adapter):
+    """A queued boundary owns the end of its deduplication generation.
+
+    The next segment can start before the save thread sends the old boundary.
+    Sending that old task later must not erase the new segment's watermark.
+    """
+    adapter, _ = build_adapter(stage_id=1)
+    request = _req("req-stream", RequestStatus.WAITING, external_req_id="ext-stream")
+    request.resumable = True
+    request.num_computed_tokens = 0
+    adapter.requests_num_chunks_sent["ext-stream"] = 26
+
+    adapter.save_async(
+        multimodal_output=None,
+        request=request,
+        is_segment_finished=True,
+        confirmed_num_computed_tokens=26,
+    )
+
+    assert len(adapter._pending_save_reqs) == 1
+    boundary_task = adapter._pending_save_reqs.popleft()
+    assert "ext-stream" not in adapter.requests_num_chunks_sent
+
+    request.num_computed_tokens = 3
+    adapter.save_async(
+        multimodal_output=None,
+        request=request,
+        is_segment_finished=False,
+    )
+
+    assert len(adapter._pending_save_reqs) == 1
+    assert adapter.requests_num_chunks_sent["ext-stream"] == 3
+
+    adapter._send_single_request(boundary_task)
+
+    assert adapter.requests_num_chunks_sent["ext-stream"] == 3
+
+
+def test_background_send_uses_enqueued_request_snapshot(build_adapter):
+    """A queued segment must not observe later in-place request mutations."""
+    adapter, _ = build_adapter(stage_id=1)
+    request = Request(
+        request_id="req-stream",
+        prompt_token_ids=[1, 2],
+        sampling_params=SamplingParams(max_tokens=8),
+        pooling_params=None,
+        resumable=True,
+    )
+    request.external_req_id = "ext-stream"
+    ref_audio = torch.tensor([0.1, -0.1])
+    request.additional_information = {"codes": {"ref": ref_audio}, "meta": {"segment": "old"}}
+    request.append_output_token_ids([7])
+    seen_requests = []
+
+    def recording_processor(**kwargs):
+        queued = kwargs["request"]
+        seen_requests.append(
+            (
+                queued.additional_information["meta"]["segment"],
+                list(queued.prompt_token_ids),
+                list(queued.output_token_ids),
+                list(queued.all_token_ids),
+                queued.additional_information["codes"]["ref"] is ref_audio,
+            )
+        )
+        return OmniPayloadStruct()
+
+    adapter.custom_process_next_stage_input_func = recording_processor
+    adapter.save_async(
+        multimodal_output=None,
+        request=request,
+        is_segment_finished=True,
+    )
+    request.additional_information["meta"]["segment"] = "next"
+    request.prompt_token_ids.append(3)
+    request.append_output_token_ids([8])
+    adapter.save_async(
+        multimodal_output=None,
+        request=request,
+        is_segment_finished=True,
+    )
+    request.additional_information["meta"]["segment"] = "later"
+    request.prompt_token_ids.append(4)
+    request.append_output_token_ids([9])
+
+    assert len(adapter._pending_save_reqs) == 2
+    first_task = adapter._pending_save_reqs.popleft()
+    second_task = adapter._pending_save_reqs.popleft()
+    assert first_task["request"].additional_information is not request.additional_information
+    assert first_task["request"].additional_information["meta"] is not request.additional_information["meta"]
+
+    adapter._send_single_request(first_task)
+    adapter._send_single_request(second_task)
+
+    assert seen_requests == [
+        ("old", [1, 2], [7], [1, 2, 7], True),
+        ("next", [1, 2, 3], [7, 8], [1, 2, 7, 8], True),
+    ]
+
+
+def test_save_without_custom_processor_does_not_snapshot_request(build_adapter, mocker):
+    adapter, _ = build_adapter(stage_id=1)
+    request = _req("req-direct", RequestStatus.RUNNING, external_req_id="ext-direct")
+    snapshot = mocker.patch.object(
+        adapter,
+        "_snapshot_processor_request",
+        side_effect=AssertionError("unexpected snapshot"),
+    )
+
+    adapter.save_async(multimodal_output=None, request=request)
+
+    snapshot.assert_not_called()
+    assert adapter._pending_save_reqs.popleft()["request"] is request
 
 
 def test_send_single_request_terminal_chunk_still_flushes_processor(build_adapter, monkeypatch):
@@ -571,6 +736,92 @@ def test_load_poll_non_ar_merges_into_existing_additional_information(build_adap
     assert request.additional_information["kv_metadata"] == {"foo": "bar"}
     assert "req-non-ar" in adapter._finished_load_reqs
     assert "req-non-ar" in adapter.upstream_exhausted_requests
+
+
+def test_load_poll_generation_segment_marker_replaces_previous_chunk(build_adapter):
+    adapter, connector = build_adapter(stage_id=2, model_mode="generation")
+    request = _req("req-marker", RequestStatus.WAITING, external_req_id="external-marker")
+    request.additional_information = {
+        "codes": {"audio": torch.tensor([1, 2])},
+        "meta": {"cache_epoch": 0, "chunk_seq": 2, "last_chunk": True},
+    }
+    connector.get.return_value = (
+        {
+            "codes": {
+                "audio": torch.tensor([7, 8], dtype=torch.long),
+                "ref": torch.tensor([0.1, -0.1]),
+            },
+            "meta": {
+                "finished": torch.tensor(False, dtype=torch.bool),
+                "is_segment_finished": torch.tensor(True, dtype=torch.bool),
+                "request_finished": torch.tensor(False, dtype=torch.bool),
+                "replace_runtime_additional_information": True,
+            },
+        },
+        1,
+    )
+
+    assert adapter._poll_single_request(request) is True
+
+    assert request.prompt_token_ids == [7, 8]
+    assert "audio" not in request.additional_information["codes"]
+    torch.testing.assert_close(
+        request.additional_information["codes"]["ref"],
+        torch.tensor([0.1, -0.1]),
+    )
+    assert not {"cache_epoch", "chunk_seq", "last_chunk"}.intersection(request.additional_information["meta"])
+    assert request.request_id in adapter.segment_finished_requests
+
+
+def test_load_poll_generation_empty_replacement_snapshot_is_ready(build_adapter):
+    adapter, connector = build_adapter(stage_id=2, model_mode="generation")
+    request = _req("req-empty-marker", RequestStatus.WAITING, external_req_id="external-empty-marker")
+    request.additional_information = {
+        "codes": {"audio": torch.tensor([1, 2])},
+        "meta": {"cache_epoch": 0, "chunk_seq": 2, "last_chunk": True},
+    }
+    connector.get.return_value = (
+        {
+            "meta": {
+                "is_segment_finished": torch.tensor(True, dtype=torch.bool),
+                "replace_runtime_additional_information": True,
+            }
+        },
+        1,
+    )
+
+    assert adapter._poll_single_request(request) is True
+
+    assert request.prompt_token_ids == [0]
+    assert "codes" not in request.additional_information
+    assert request.additional_information["meta"]["replace_runtime_additional_information"] is True
+    assert request.request_id in adapter.segment_finished_requests
+    assert request.request_id in adapter._finished_load_reqs
+
+
+def test_load_poll_generation_without_snapshot_marker_keeps_incremental_state(build_adapter):
+    adapter, connector = build_adapter(stage_id=2, model_mode="generation")
+    request = _req("req-incremental", RequestStatus.WAITING, external_req_id="external-incremental")
+    request.additional_information = {
+        "codes": {"audio": torch.tensor([1, 2])},
+        "meta": {"cache_epoch": 3, "chunk_seq": 2},
+    }
+    connector.get.return_value = (
+        {
+            "meta": {
+                "finished": torch.tensor(False, dtype=torch.bool),
+                "phase": "decode",
+            }
+        },
+        1,
+    )
+
+    assert adapter._poll_single_request(request) is False
+
+    assert torch.equal(request.additional_information["codes"]["audio"], torch.tensor([1, 2]))
+    assert request.additional_information["meta"]["cache_epoch"] == 3
+    assert request.additional_information["meta"]["chunk_seq"] == 2
+    assert request.additional_information["meta"]["phase"] == "decode"
 
 
 def test_load_poll_ar_request_additional_information_concats_tensors(build_adapter):
