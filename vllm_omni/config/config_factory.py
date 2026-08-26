@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
 """Config factories for vllm-omni, e.g., StageConfigFactory."""
 
 from __future__ import annotations
@@ -69,14 +69,31 @@ def _materialize_object_storage_configs(model: str) -> str:
 
 
 def _name_match_candidate(model: str) -> str:
-    """Last path component of a model reference, used for name-based matching.
+    """Model-name component of a model reference, used for name-based matching.
 
     Object-storage URIs and HF repo ids carry non-model segments (bucket name,
     organization) that must not participate in substring matching; e.g. a
     bucket named ``qwen3-tts-models`` holding a ``Qwen3-Omni`` checkpoint must
-    not resolve to the ``qwen3_tts`` pipeline.
+    not resolve to the ``qwen3_tts`` pipeline. Usually that means the last
+    path component.
+
+    A resolved HF hub cache snapshot path is the exception: it ends in
+    ``models--<org>--<name>/snapshots/<revision>`` (or ``models--<name>`` for
+    legacy un-namespaced repos such as ``gpt2``), so its basename is a bare
+    revision hash with no model identity (models with an empty ``config.json``
+    such as CosyVoice3 then lose their only detection route). Recover ``name``
+    from the repo segment; the organization still stays out of the match. The
+    two forms are exhaustive because hub validation rejects ``--`` inside repo
+    ids; anything else keeps the plain basename.
     """
-    return model.rstrip("/").rsplit("/", 1)[-1]
+    parts = [part for part in str(model).rstrip("/").split("/") if part]
+    if not parts:
+        return ""
+    if len(parts) >= 3 and parts[-2] == "snapshots":
+        repo_dir = parts[-3].split("--")
+        if repo_dir[0] == "models" and len(repo_dir) in (2, 3) and all(repo_dir):
+            return repo_dir[-1]
+    return parts[-1]
 
 
 def with_trust_remote_code_override(
@@ -226,7 +243,10 @@ class StageConfigFactory:
                     # If we have a resolver, call it with the optional hf_config
                     # to get the default pipeline config for this key
                     pipeline_cfg = obj(hf_config) if callable(obj) else obj
-                    if pipeline_cfg is not None and pipeline_cfg.diffusers_class_name == class_name:
+                    if pipeline_cfg is not None and class_name in (
+                        pipeline_cfg.diffusers_class_name,
+                        *pipeline_cfg.diffusers_class_aliases,
+                    ):
                         logger.info(
                             "Detected pipeline %r from model_index.json (_class_name=%r)",
                             pipeline_cfg.model_type,
@@ -433,6 +453,7 @@ class StageConfigFactory:
         load-balancer policy (``None`` when no strategy set one) travels with the
         stages instead of through a mutable out-param.
         """
+        deploy_cfg: DeployConfig | None
         if user_deploy_config is not None:
             deploy_cfg = user_deploy_config
         elif deploy_config_path is not None:
@@ -440,8 +461,11 @@ class StageConfigFactory:
             assert deploy_cfg is not None
         elif pipeline_cfg.default_deploy_config_name is not None:
             deploy_cfg = load_deploy_config(_DEPLOY_DIR / pipeline_cfg.default_deploy_config_name)
+            assert deploy_cfg is not None
         else:
             deploy_cfg = DeployConfig()
+
+        assert deploy_cfg is not None
 
         cli_async_chunk = cli_overrides.get("async_chunk")
         if cli_async_chunk is not None:
