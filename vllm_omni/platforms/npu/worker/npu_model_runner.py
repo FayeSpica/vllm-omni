@@ -336,7 +336,7 @@ class OmniNPUModelRunner(OmniGPUModelRunner, NPUModelRunner):
                 intermediate_tensors = None
             else:
                 # When PP and sequence parallelism are enabled, during dummy_run the estimated space should divide
-                # num_tokens by tp_size; otherwise, on non-first PP ranks it would effectively perform an extra 
+                # num_tokens by tp_size; otherwise, on non-first PP ranks it would effectively perform an extra
                 # all-gather, leading to incorrect memory estimation and potentially causing OOM.
                 intermediate_tokens = num_tokens_padded
                 if enable_sp():
