@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import logging
 import time
 from collections.abc import Mapping
 from copy import copy
+from dataclasses import replace
 
 import numpy as np
 import torch
@@ -100,6 +101,15 @@ class NPUGenerationModelRunner(OmniNPUModelRunner, OmniConnectorModelRunnerMixin
                 self._execution_start_time = time.perf_counter()
         if self.execute_model_state is not None:
             raise RuntimeError("State error: sample_tokens() must be called after execute_model() returns None.")
+
+        if self.speculative_config is not None and self.speculative_config.use_ngram_gpu():
+            num_scheduled_tokens_copy = scheduler_output.num_scheduled_tokens.copy()
+            spec_decode_tokens_copy = scheduler_output.scheduled_spec_decode_tokens.copy()
+            scheduler_output = replace(
+                scheduler_output,
+                num_scheduled_tokens=num_scheduled_tokens_copy,
+                scheduled_spec_decode_tokens=spec_decode_tokens_copy,
+            )
 
         if has_kv_transfer_group():
             kv_connector_metadata = scheduler_output.kv_connector_metadata
