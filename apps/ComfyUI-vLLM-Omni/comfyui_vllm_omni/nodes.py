@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
 
-from decimal import Decimal
 from typing import Literal
 
 import torch
@@ -541,17 +540,6 @@ class VLLMOmniGenerateMusic(_VLLMOmniGenerateBase):
     RETURN_NAMES = ("audio",)
     FUNCTION = "generate"
 
-    @classmethod
-    def VALIDATE_INPUTS(cls, url, model, max_duration_seconds, seed=0) -> str | Literal[True]:
-        base = super().VALIDATE_INPUTS(url, model)
-        if base is not True:
-            return base
-        if not 1 <= max_duration_seconds <= 360:
-            return "Maximum duration must be between 1 and 360 seconds."
-        if not isinstance(seed, int) or isinstance(seed, bool) or not 0 <= seed <= 2**53 - 1:
-            return "Seed must be an integer between 0 and 9007199254740991."
-        return True
-
     async def generate(
         self,
         url: str,
@@ -562,9 +550,6 @@ class VLLMOmniGenerateMusic(_VLLMOmniGenerateBase):
         max_duration_seconds: float,
         seed: int = 0,
     ) -> tuple[AudioInput]:
-        validation = self.VALIDATE_INPUTS(url, model, max_duration_seconds, seed)
-        if validation is not True:
-            raise ValueError(validation)
         audio = await VLLMOmniClient(url.rstrip("/")).generate_speech(
             model=model,
             input=lyrics,
@@ -572,7 +557,7 @@ class VLLMOmniGenerateMusic(_VLLMOmniGenerateBase):
             voice="default",
             speed=1.0,
             response_format=response_format,
-            max_new_tokens=int(Decimal(str(max_duration_seconds)) * 25),
+            max_new_tokens=int(max_duration_seconds * 25),
             seed=seed,
         )
         return (audio,)
