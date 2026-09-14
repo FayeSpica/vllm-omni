@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
 
+from decimal import Decimal
 from typing import Literal
 
 import torch
@@ -499,6 +500,80 @@ class VLLMOmniTTS(_VLLMOmniGenerateBase):
             response_format=response_format,
             speed=speed,
             **combined_params,
+        )
+        return (audio,)
+
+
+class VLLMOmniGenerateMusic(_VLLMOmniGenerateBase):
+    """Generate a song from lyrics and a musical description with MiniMax Music 3."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "url": ("STRING", {"default": "http://localhost:8000/v1"}),
+                "model": ("STRING", {"default": "MiniMaxAI/MiniMax-Music3"}),
+                "instructions": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "display_name": "caption",
+                        "tooltip": "Music caption: describe genre, instruments, tempo and mood.",
+                    },
+                ),
+                "lyrics": ("STRING", {"multiline": True}),
+                "max_duration_seconds": (
+                    "FLOAT",
+                    {
+                        "default": 300.0,
+                        "min": 1,
+                        "max": 360,
+                        "step": 0.01,
+                        "tooltip": "Upper limit; rounded down to whole 25 Hz audio frames. May end earlier.",
+                    },
+                ),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2**53 - 1, "control_after_generate": True}),
+                "response_format": (["wav", "mp3", "flac", "opus", "aac"],),
+            },
+        }
+
+    RETURN_TYPES = ("AUDIO",)
+    RETURN_NAMES = ("audio",)
+    FUNCTION = "generate"
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, url, model, max_duration_seconds, seed=0) -> str | Literal[True]:
+        base = super().VALIDATE_INPUTS(url, model)
+        if base is not True:
+            return base
+        if not 1 <= max_duration_seconds <= 360:
+            return "Maximum duration must be between 1 and 360 seconds."
+        if not isinstance(seed, int) or isinstance(seed, bool) or not 0 <= seed <= 2**53 - 1:
+            return "Seed must be an integer between 0 and 9007199254740991."
+        return True
+
+    async def generate(
+        self,
+        url: str,
+        model: str,
+        lyrics: str,
+        instructions: str,
+        response_format: AudioFormat,
+        max_duration_seconds: float,
+        seed: int = 0,
+    ) -> tuple[AudioInput]:
+        validation = self.VALIDATE_INPUTS(url, model, max_duration_seconds, seed)
+        if validation is not True:
+            raise ValueError(validation)
+        audio = await VLLMOmniClient(url.rstrip("/")).generate_speech(
+            model=model,
+            input=lyrics,
+            instructions=instructions,
+            voice="default",
+            speed=1.0,
+            response_format=response_format,
+            max_new_tokens=int(Decimal(str(max_duration_seconds)) * 25),
+            seed=seed,
         )
         return (audio,)
 
