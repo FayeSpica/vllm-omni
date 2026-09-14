@@ -533,7 +533,7 @@ class VLLMOmniGenerateMusic(_VLLMOmniGenerateBase):
                     },
                 ),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2**53 - 1, "control_after_generate": True}),
-                "response_format": (["wav", "mp3", "flac", "opus", "aac"],),
+                "response_format": (["wav", "mp3", "flac", "opus"],),
             },
         }
 
