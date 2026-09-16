@@ -30,6 +30,7 @@ from .format import (
     video_to_base64,
     video_to_bytes,
 )
+from .latent_mask import scalar_mask_to_json, video_mask_to_grid_json
 from .logger import get_logger, pretty_printer
 from .models import lookup_model_spec
 from .types import (
@@ -281,6 +282,7 @@ class VLLMOmniClient:
         sampling_params: dict | None = None,
         model_params: dict | None = None,
         lora: dict | None = None,
+        latent_edit: dict | None = None,
         spec_model: str | None = None,
         **extra_params,
     ) -> VideoInput:
