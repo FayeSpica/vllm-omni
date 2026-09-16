@@ -533,6 +533,8 @@ def mock_async_omni(
     # Need to mock AsyncOmni itself (not only its generate method) because
     # 1. The API layer uses its stage_list and stage_configs attributes
     # 2. Its __init__ method has slow side effects (model & config loading).
+    # These cases use the non-duplex mock engine without loading model configs.
+    mocker.patch("vllm_omni.entrypoints.openai.api_server._is_duplex_model", return_value=False)
     mock_async_omni_cls = mocker.patch("vllm_omni.entrypoints.openai.api_server.AsyncOmni")
     monkeypatch.setattr(
         "vllm_omni.entrypoints.openai.serving_chat.OmniOpenAIServingChat._preprocess_chat",
