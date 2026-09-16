@@ -1,17 +1,15 @@
-import importlib.util
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
+
+"""Unit tests for latent-mask serialization helpers."""
+
 import json
-import os
 
 import pytest
 import torch
+from comfyui_vllm_omni.utils.latent_mask import scalar_mask_to_json, video_mask_to_grid_json
 
-_EXT_ROOT = os.environ.get("VLLM_OMNI_EXT_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_LM_PATH = os.path.join(_EXT_ROOT, "comfyui_vllm_omni", "utils", "latent_mask.py")
-_spec = importlib.util.spec_from_file_location("latent_mask", _LM_PATH)
-_lm = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_lm)
-scalar_mask_to_json = _lm.scalar_mask_to_json
-video_mask_to_grid_json = _lm.video_mask_to_grid_json
+pytestmark = [pytest.mark.core_model, pytest.mark.cpu]
 
 
 def test_scalar_mask_to_json():

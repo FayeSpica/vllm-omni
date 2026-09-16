@@ -4,9 +4,9 @@
 """End-to-end test for latent-mask editing serialization.
 
 Exercises ``VLLMOmniClient.generate_video`` with a ``latent_edit`` payload
-against the mock ``/v1/videos`` server and asserts the multipart fields the
-client produced. Requires a ComfyUI checkout (``comfy_api``) and CUDA; the
-module is skipped when either is unavailable.
+against a mock ``/v1/videos`` server and asserts the multipart fields the
+client produced. Runs on CPU: the ComfyUI ``comfy_api`` / ``comfy_extras``
+modules are mocked by this directory's ``conftest.py``.
 """
 
 import asyncio
@@ -18,26 +18,11 @@ import sys
 import time
 
 import pytest
+import torch
+from comfy_api.input import VideoInput
+from comfyui_vllm_omni.utils.api_client import VLLMOmniClient
 
-_EXT_ROOT = os.environ.get("VLLM_OMNI_EXT_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_COMFYUI_DIR = os.environ.get("COMFYUI_DIR", "")
-
-for _p in (_EXT_ROOT, _COMFYUI_DIR):
-    if _p and _p not in sys.path:
-        sys.path.insert(0, _p)
-
-try:
-    import comfy_api.latest  # noqa: F401  # init first to avoid the input/_io circular import
-    import torch  # noqa: F401
-    from comfyui_vllm_omni.utils.api_client import VLLMOmniClient
-    from comfyui_vllm_omni.utils.format import bytes_to_video
-except ImportError:
-    pytest.skip("ComfyUI / extension import unavailable", allow_module_level=True)
-
-pytestmark = pytest.mark.skipif(
-    not torch.cuda.is_available(),
-    reason="comfy.model_management requires CUDA",
-)
+pytestmark = [pytest.mark.core_model, pytest.mark.cpu]
 
 _TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -48,51 +33,13 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
-def _make_source_mp4(path: str) -> None:
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc2=size=160x120:rate=24:duration=1",
-            "-f",
-            "lavfi",
-            "-i",
-            "sine=frequency=440:sample_rate=32000:duration=1",
-            "-map",
-            "0:v",
-            "-map",
-            "1:a",
-            "-shortest",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "-c:a",
-            "aac",
-            "-ar",
-            "32000",
-            "-ac",
-            "2",
-            path,
-        ],
-        check=True,
-        capture_output=True,
-    )
-
-
 @pytest.fixture
 def mock_server(tmp_path):
     port = _free_port()
     state_file = tmp_path / "state.json"
     env = dict(os.environ, MOCK_STATE_FILE=str(state_file))
     proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "mock_server:app", "--host", "127.0.0.1", "--port", str(port)],
+        [sys.executable, "-m", "uvicorn", "mock_videos_server:app", "--host", "127.0.0.1", "--port", str(port)],
         cwd=_TESTS_DIR,
         env=env,
         stdout=subprocess.DEVNULL,
@@ -112,14 +59,12 @@ def mock_server(tmp_path):
         proc.wait(timeout=10)
 
 
-def test_latent_edit_serialization(mock_server, tmp_path):
+def test_latent_edit_serialization(mock_server):
     base_url, state_file = mock_server
-    source = tmp_path / "source.mp4"
-    _make_source_mp4(str(source))
 
-    with open(source, "rb") as f:
-        source_video = bytes_to_video(f.read())
-
+    # A non-trivial video mask requires a source video. The mocked VideoInput
+    # only needs to provide ``save_to`` for the client's multipart upload.
+    source_video = VideoInput(b"mock_source_video")
     mask = torch.zeros(1, 120, 160)
     latent_edit = {"source_video": source_video, "video_mask": mask, "audio_mask": 0.5}
 
