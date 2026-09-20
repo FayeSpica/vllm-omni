@@ -11,7 +11,8 @@ import pytest
 pytestmark = [pytest.mark.core_model, pytest.mark.cpu]
 
 WORKFLOW = (
-    Path(__file__).resolve().parents[4] / "apps/ComfyUI-vLLM-Omni/example_workflows/vLLM-Omni H3 Latent Editing.json"
+    Path(__file__).resolve().parents[4]
+    / "apps/ComfyUI-vLLM-Omni/example_workflows/vLLM-Omni MiniMax-H3 Latent Mask Editing.json"
 )
 
 
@@ -30,44 +31,50 @@ def test_wf05_graph_links():
 
 def test_wf05_defaults_and_outputs():
     graph = json.loads(WORKFLOW.read_text())
-    generators = [n for n in graph["nodes"] if n["type"] == "VLLMOmniGenerateVideo"]
-    assert len(generators) == 4
-    assert [n["mode"] for n in generators] == [0, 2, 2, 2]
-    for node in generators:
-        width, height, fps, duration = node["widgets_values"][-4:]
-        assert (width, height, fps) == (1344, 768, 24)
-        frames = round(duration * fps)
-        assert frames % 17 == 5
-        assert frames == (209 if node["title"] == "Extension" else 107)
-        assert next(i for i in node["inputs"] if i["name"] == "latent_edit")["link"] is not None
-    saves = [n for n in graph["nodes"] if n["type"] == "SaveVideo"]
-    assert len(saves) == 4
-    assert all(n["inputs"][0]["link"] is not None for n in saves)
-
-
-@pytest.mark.parametrize("title,counts", [("Continuation", (16, 16)), ("Extension", (32, 30))])
-def test_wf05_temporal_mask(title, counts):
-    graph = json.loads(WORKFLOW.read_text())
     nodes = {n["id"]: n for n in graph["nodes"]}
     links = {link[0]: link for link in graph["links"]}
+    generators = [n for n in nodes.values() if n["type"] == "VLLMOmniGenerateVideo"]
+    assert len(generators) == 4
+    assert len([n for n in nodes.values() if n["type"] == "SaveVideo"]) == 8
+    assert not any(n["type"] == "VLLMOmniH3MaskGridPreview" for n in nodes.values())
+    for gen in generators:
+        case = gen["title"].removeprefix("Generate Video(").removesuffix(")")
+        save = next(n for n in nodes.values() if n.get("title") == f"Mask Preview ({case})")
+        create = nodes[links[save["inputs"][0]["link"]][1]]
+        image_node = nodes[links[create["inputs"][0]["link"]][1]]
+        edit = nodes[links[next(i["link"] for i in gen["inputs"] if i["name"] == "latent_edit")][1]]
+        mask_link = next(i["link"] for i in edit["inputs"] if i["name"] == "video_mask")
+        assert image_node["type"] == "ImageBlend"
+        consumer = nodes[links[next(i["link"] for i in image_node["inputs"] if i["name"] == "image2")][1]]
+        assert consumer["type"] == "ImageCompositeMasked"
+        preview_mask = next(i["link"] for i in consumer["inputs"] if i["name"] == "mask")
+        if case in ("Continuation", "Extension"):
+            assert nodes[links[mask_link][1]]["type"] == "VLLMOmniH3TemporalMask"
+            assert links[preview_mask][1:3] == [links[mask_link][1], 4]
+            fps_link = next(i["link"] for i in create["inputs"] if i["name"] == "fps")
+            assert links[fps_link][1:3] == [links[mask_link][1], 2]
+        else:
+            assert links[mask_link][1:3] == links[preview_mask][1:3]
 
-    def upstream(node, name):
-        link_id = next(i["link"] for i in node["inputs"] if i["name"] == name)
-        return nodes[links[link_id][1]]
 
-    generator = next(n for n in nodes.values() if n["title"] == title)
-    edit = upstream(generator, "latent_edit")
-    assert edit["widgets_values"] == [1.0]
-    mask = upstream(edit, "video_mask")
-    assert mask["type"] == "ImageToMask"
-    batch = upstream(mask, "image")
-    assert batch["type"] == "ImageBatch"
-    for slot, value, count in zip(("image1", "image2"), (0.0, 1.0), counts):
-        repeat = upstream(batch, slot)
-        assert repeat["type"] == "RepeatImageBatch"
-        assert repeat["widgets_values"] == [count]
-        solid = upstream(upstream(repeat, "image"), "mask")
-        assert solid["type"] == "SolidMask"
-        assert solid["widgets_values"][0] == value
-    frames = round(generator["widgets_values"][-1] * 24)
-    assert sum(counts) == 2 + 5 * ((frames - 5) // 17)
+def test_wf05_output_layout():
+    graph = json.loads(WORKFLOW.read_text())
+    for case in ("Object Removal", "Inpainting", "Continuation", "Extension"):
+        preview = next(n for n in graph["nodes"] if n.get("title") == f"Mask Preview ({case})")
+        result = next(n for n in graph["nodes"] if n.get("title") == f"Save Video ({case})")
+        assert preview["pos"][0] == result["pos"][0]
+        assert preview["pos"][1] + preview["size"][1] < result["pos"][1]
+
+
+def test_wf05_portable_inputs():
+    graph = json.loads(WORKFLOW.read_text())
+    for node in graph["nodes"]:
+        if node["type"] in ("LoadVideo", "LoadImageMask"):
+            assert node["widgets_values"][0] == ""
+    assert not any(n["type"] == "ImageBatch" for n in graph["nodes"])
+
+
+def test_wf05_temporal_nodes():
+    graph = json.loads(WORKFLOW.read_text())
+    assert sum(n["type"] == "VLLMOmniH3TemporalMask" for n in graph["nodes"]) == 2
+    assert not any(n["type"] == "ComfyMathExpression" for n in graph["nodes"])

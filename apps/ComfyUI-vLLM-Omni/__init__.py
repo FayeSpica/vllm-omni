@@ -14,7 +14,6 @@ __author__ = """vLLM-Omni Team"""
 __email__ = "vllm-omni@vllm.ai"
 __version__ = "0.0.1"
 
-from .comfyui_vllm_omni.mask_preview import VLLMOmniH3MaskGridPreview
 from .comfyui_vllm_omni.nodes import (
     VLLMOmniARSampling,
     VLLMOmniDiffusionSampling,
@@ -33,10 +32,11 @@ from .comfyui_vllm_omni.nodes import (
     VLLMOmniVoiceClone,
     VLLMOmniWanParams,
 )
+from .comfyui_vllm_omni.temporal_mask import VLLMOmniH3TemporalMask
 
 # A dictionary that contains all nodes you want to export with their names
 NODE_CLASS_MAPPINGS = {
-    "VLLMOmniH3MaskGridPreview": VLLMOmniH3MaskGridPreview,
+    "VLLMOmniH3TemporalMask": VLLMOmniH3TemporalMask,
     # === Generation ===
     "VLLMOmniGenerateImage": VLLMOmniGenerateImage,
     "VLLMOmniGenerateVideo": VLLMOmniGenerateVideo,
@@ -59,7 +59,7 @@ NODE_CLASS_MAPPINGS = {
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "VLLMOmniH3MaskGridPreview": "H3 Mask Grid Preview",
+    "VLLMOmniH3TemporalMask": "MiniMax-H3 Temporal Mask",
     # === Generation ===
     "VLLMOmniGenerateImage": "Generate Image",
     "VLLMOmniGenerateVideo": "Generate Video",

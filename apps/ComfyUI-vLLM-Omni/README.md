@@ -264,7 +264,7 @@ The node records which server the workflow targets; it does not start one, nor s
 
 #### Latent-mask editing (MiniMax-H3)
 
-The [WF-05 template](example_workflows/vLLM-Omni%20H3%20Latent%20Editing.json) contains inpainting, object removal, continuation, and extension examples in one graph. See the [workflow guide](docs/wf05-h3-latent-editing.md) for inputs, mask settings, dependencies, and pending real-model validation.
+The [WF-05 template](example_workflows/vLLM-Omni%20MiniMax-H3%20Latent%20Mask%20Editing.json) contains inpainting, object removal, continuation, and extension examples in one graph. See the [workflow guide](docs/wf05-h3-latent-editing.md) for inputs, mask settings, dependencies, and preview limitations.
 
 Connect a **Latent Mask Editing** node to **Generate Video → latent_edit** to edit a source clip instead of generating from scratch. It uploads the source media and serializes the video/audio noise masks the MiniMax H3 API accepts:
 

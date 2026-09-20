@@ -396,17 +396,19 @@ class VLLMOmniClient:
                 )
             if video_mask is not None:
                 mask_json = video_mask_to_grid_json(video_mask, width=width, height=height, num_frames=num_frames)
-                if len(mask_json) > 1024 * 1024:
-                    form.add_field(
-                        "video_noise_mask",
-                        mask_json.encode("utf-8"),
-                        filename="video-mask.json",
-                        content_type="application/json",
-                    )
-                else:
-                    form.add_field("video_noise_mask", mask_json)
+                form.add_field(
+                    "video_noise_mask",
+                    mask_json.encode("utf-8"),
+                    filename="video-mask.json",
+                    content_type="application/json",
+                )
             if audio_mask is not None:
-                form.add_field("audio_noise_mask", scalar_mask_to_json(audio_mask))
+                form.add_field(
+                    "audio_noise_mask",
+                    scalar_mask_to_json(audio_mask).encode("utf-8"),
+                    filename="audio-mask.json",
+                    content_type="application/json",
+                )
 
         # === model specific params. Either use a specialized builder, or add flattened fields as-is ===
         if model_params is not None:

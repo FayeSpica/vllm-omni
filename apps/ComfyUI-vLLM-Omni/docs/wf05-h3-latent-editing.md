@@ -1,24 +1,19 @@
 # H3 latent-mask editing (WF-05)
 
-Open `vLLM-Omni H3 Latent Editing` from the extension templates. It contains four independent groups: inpainting, object removal, continuation, and extension. Only inpainting is enabled initially. Set the current group's nodes to **Never**, then enable the group you want to run; do not use Bypass for disabling these examples.
+Open `vLLM-Omni MiniMax-H3 Latent Mask Editing`. Upload a source video. Each spatial case has an independent mask that is built with official Solid Mask and Combine Masks nodes; no mask image is required. Configure a compatible H3 server URL and model in each generation node. The workflow uses the EDIT-02 latent-edit interface.
 
-Requires EDIT-01 server support (#7465), EDIT-02 nodes (#7575), and the audio-preserving ComfyUI video output path. Both EDIT PRs are still open as of September 18, 2026. This is a workflow draft, not a claim that stock main supports latent editing. Set the URL and served model name in the selected Generate Video node. The template defaults to `http://127.0.0.1:8001/v1` and `MiniMaxAI/MiniMax-H3`.
+Each case has a Mask Preview above its Result in the Output Hub. Select the desired Save Video output and execute only that output to preview locally without running generation. All four cases are enabled; running the whole graph also submits generation requests.
 
-Upload a 1344 × 768 source clip with **107 frames at 24 FPS**. File selectors intentionally start empty and contain no machine-specific paths. All outputs use 24 FPS and a native 1344 × 768 resolution. Keep the Save Video connection to preserve the returned soundtrack.
+Set output dimensions and duration directly in Generate Video. For continuation and extension, also update the duration in MiniMax-H3 Temporal Mask. Defaults are 1344 x 768 at 24 FPS, with 5 seconds for removal, inpainting and continuation, and 10 seconds for extension.
 
-- **Inpainting:** upload a black/white mask using the red channel and describe the replacement. White regenerates; black preserves. The spatial mask repeats over time.
-- **Object removal:** upload a mask covering the unwanted object's complete motion path and describe the background to reconstruct. A static mask is unsuitable for precise tracking; connect a tracked mask batch if needed.
-- **Continuation:** retain the beginning and generate a new ending at the same 107-frame duration. The mask contains 16 preserved and 16 regenerated latent time slices.
-- **Extension:** extend the 107-frame source to 209 frames. The mask contains 32 preserved and 30 regenerated latent time slices. EDIT-01 pads the source with its last frame before encoding; the generated tail replaces that padded region.
+Preview uses official ComfyUI nodes only. Spatial cases use Empty Image, Image Composite Masked and Image Blend to overlay the original mask in red on source frames, followed by Create Video and Save Video. This preview follows the source resolution, FPS and duration and does not visualize the model's downsampled latent mask. Temporal cases use the same official red-overlay chain. The temporal node samples at 24 FPS and holds the last source frame for extension. With a 24 FPS source, existing frames are selected directly. Preserved frames remain unchanged; generated regions receive a red tint. This is a schematic timeline, not exact decoded-frame boundaries. Neither preview runs inference; previews are silent.
 
-At 24 FPS, durations `4.458` and `8.708` round to 107 and 209 frames. Both satisfy `17k+5`. Their latent time lengths are `2 + 5 * ((frames - 5) / 17)`, giving 32 and 62. The temporal mask uses these latent lengths directly to avoid resampling its boundary. If you change the source or output length, update the mask counts too. Preservation operates on encoded latents and does not promise a lossless pixel splice.
+MiniMax-H3 Temporal Mask calculates target frames and latent slice counts from the decoded source video. Continuation preserves the selected fraction of the shorter source/target duration. Extension preserves the source prefix and requires a longer target. The target rounds up to `17k+5` frames; preservation rounds down to complete native chunks. Set the same duration in this node and Generate Video. The node also supplies source frames and a schematic per-frame mask to the official red-overlay preview nodes.
 
-Inpainting and removal use `audio_mask=0` and require source audio. For a silent source, set it to `1` to generate audio. Continuation and extension use `audio_mask=1`, regenerating the entire soundtrack. The current EDIT-02 node exposes only a scalar audio mask; retaining the original audio prefix while generating only its tail is not represented by this template.
+Audio masks remain whole-clip scalars. Zero preserves encoded source audio, one regenerates it, and intermediate values partially edit the audio latents. Neither latent video nor audio preservation guarantees lossless reconstruction.
 
-Validation command:
+The exported workflow has an empty video selector. The default rectangle is x=1074, y=493, width=180, height=168 on a 1344 x 768 canvas, including 32 pixels of background margin around the original bag mask bounding box. Adjust Mask Canvas to the source dimensions, Mask Rectangle to the object size, and Combine Masks x/y to its position. A filled rectangle may edit more background than the original shaped mask. Provide a matching school clip or adapt the rectangle and prompts to your assets. Reopen the workflow without saving an older canvas over it.
 
-```bash
-python -m pytest --noconftest -o addopts='' tests/e2e/features/comfyui/test_wf05_template.py -q
-```
+Graph tests check wiring, matching preview/generation defaults, mask sources, vertical output placement and portable inputs. They do not establish real-model visual/audio acceptance.
 
-This graph-only check does not need engine fixtures or distributed pytest options. The focused tests check wiring, activation defaults, frame constraints, and temporal mask construction. Local result: **4 passed**; node types and connected port names also match the running ComfyUI's `/object_info`. Targeted pre-commit checks passed. Real-model validation is pending for all four groups. Before claiming WF-05 complete, record each input/mask/output, confirm dimensions, frame count and audio presence, and review preserved regions, edited regions, temporal continuity and audio synchronization.
+The example prompts use wall reconstruction, a curled cat with a swaying tail, heavy rain with distant lightning, and a summer-night firework. Current audio masks are 0, 0, 0.8, and 0.9 respectively; Continuation preserves 0.2 of the shorter source/target duration.
