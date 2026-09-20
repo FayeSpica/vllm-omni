@@ -28,7 +28,7 @@ def _video_latent_t(frame_count: int) -> int:
     return ((int(frame_count) - 5) // 17) * 5 + 2
 
 
-def video_mask_to_grid_json(mask: torch.Tensor, *, width: int, height: int, num_frames: int) -> str:
+def video_mask_to_grid(mask: torch.Tensor, *, width: int, height: int, num_frames: int) -> torch.Tensor:
     tv = _video_latent_t(_align_frame_count(num_frames))
     height = int(height) // 32 * 32
     width = int(width) // 32 * 32
@@ -44,4 +44,8 @@ def video_mask_to_grid_json(mask: torch.Tensor, *, width: int, height: int, num_
         grid = grid.expand(tv, gh, gw)
     elif grid.shape[0] != tv:
         grid = F.interpolate(grid.unsqueeze(0).unsqueeze(0), size=(tv, gh, gw), mode="nearest").squeeze(0).squeeze(0)
-    return json.dumps(grid.tolist())
+    return grid
+
+
+def video_mask_to_grid_json(mask: torch.Tensor, *, width: int, height: int, num_frames: int) -> str:
+    return json.dumps(video_mask_to_grid(mask, width=width, height=height, num_frames=num_frames).tolist())
