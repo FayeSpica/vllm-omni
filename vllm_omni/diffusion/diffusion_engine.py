@@ -281,7 +281,8 @@ class DiffusionEngine:
                     kv_vllm_config=kv_vllm_config,
                 )
             self._init_runtime_state()
-            self.executor.progress_callback = self._on_progress
+            if self.executor.uses_multiproc:
+                self.executor.progress_callback = self._on_progress
             self._init_execute_fn()
             self._log_execution_mode(od_config)
         except Exception:

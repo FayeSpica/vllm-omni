@@ -166,7 +166,7 @@ class StageDiffusionProc:
         prompt: Any,
         sampling_params_dict: dict,
         kv_sender_info: dict[str, Any] | None = None,
-        on_request_started: Callable[[OmniRequestOutput], Awaitable[None]] | None = None,
+        on_request_lifecycle: Callable[[OmniRequestOutput], Awaitable[None]] | None = None,
         kv_transfer_params: dict[str, Any] | None = None,
     ) -> OmniRequestOutput:
         """Build a diffusion request and consume DiffusionEngine.step_streaming() to completion."""
@@ -185,10 +185,10 @@ class StageDiffusionProc:
         result = None
         async for results in self._engine.step_streaming(request):
             output = results[0]
-            if is_diffusion_request_lifecycle_output(output) and on_request_started is not None:
+            if is_diffusion_request_lifecycle_output(output) and on_request_lifecycle is not None:
                 if not output.request_id:
                     output.request_id = request_id
-                await on_request_started(output)
+                await on_request_lifecycle(output)
                 continue
             result = output
         if result is None:
@@ -365,7 +365,7 @@ class StageDiffusionProc:
             try:
                 if not self._od_config.streaming_output:
 
-                    async def _send_request_started(output: OmniRequestOutput) -> None:
+                    async def _send_request_lifecycle(output: OmniRequestOutput) -> None:
                         await response_socket.send(encoder.encode({"type": "result", "output": output}))
 
                     result = await self._process_request(
@@ -373,7 +373,7 @@ class StageDiffusionProc:
                         prompt,
                         sampling_params_dict,
                         kv_sender_info=kv_sender_info,
-                        on_request_started=_send_request_started,
+                        on_request_lifecycle=_send_request_lifecycle,
                         kv_transfer_params=kv_transfer_params,
                     )
                     await response_socket.send(encoder.encode({"type": "result", "output": result}))

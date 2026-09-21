@@ -144,6 +144,7 @@ class _ExecutorShutdownCleaner:
 
 class MultiprocDiffusionExecutor(DiffusionExecutor):
     uses_multiproc: bool = True
+    progress_callback: Callable[[DiffusionProgress], None] | None = None
 
     # Class-level defaults so tests using object.__new__ (without _init_executor)
     # don't hit AttributeError when collective_rpc accesses these.
@@ -918,7 +919,7 @@ class MultiprocDiffusionExecutor(DiffusionExecutor):
                 continue
 
             if isinstance(msg, DiffusionProgress):
-                callback = getattr(self, "progress_callback", None)
+                callback = self.progress_callback
                 if callback is not None:
                     try:
                         callback(msg)

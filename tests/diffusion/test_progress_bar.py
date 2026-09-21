@@ -23,7 +23,7 @@ def test_reports_steps_even_when_terminal_bar_disabled(disabled):
     pipeline.set_progress_bar_config(disable=disabled)
     events = []
     with progress_sink(events.append), progress_requests([request("a"), request("b"), request("offline", False)]):
-        with pipeline.progress_bar(total=3) as bar:
+        with pipeline.progress_bar(report_progress=True, total=3) as bar:
             for _ in range(3):
                 bar.update()
     assert events == [DiffusionProgress(rid, step, 3) for step in range(1, 4) for rid in ("a", "b")]
@@ -35,11 +35,23 @@ def test_request_context_does_not_leak_after_failure():
     events = []
     with progress_sink(events.append):
         with pytest.raises(RuntimeError), progress_requests([request("failed")]):
-            with pipeline.progress_bar(total=2) as bar:
+            with pipeline.progress_bar(report_progress=True, total=2) as bar:
                 bar.update()
                 raise RuntimeError("generation failed")
-        with pipeline.progress_bar(total=2) as bar:
+        with pipeline.progress_bar(report_progress=True, total=2) as bar:
             bar.update()
-        with progress_requests([request("next")]), pipeline.progress_bar(total=1) as bar:
+        with progress_requests([request("next")]), pipeline.progress_bar(report_progress=True, total=1) as bar:
             bar.update()
     assert events == [DiffusionProgress("failed", 1, 2), DiffusionProgress("next", 1, 1)]
+
+
+def test_unadapted_multi_loop_pipeline_does_not_report_job_progress():
+    pipeline = ProgressBarMixin()
+    pipeline.set_progress_bar_config(disable=True)
+    events = []
+    with progress_sink(events.append), progress_requests([request("video")]):
+        for total in (2, 3):
+            with pipeline.progress_bar(total=total) as bar:
+                for _ in range(total):
+                    bar.update()
+    assert events == []

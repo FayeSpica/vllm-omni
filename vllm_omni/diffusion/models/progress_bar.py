@@ -43,7 +43,7 @@ def progress_sink(sink):
 def progress_requests(requests):
     """Bind identities after DP selection, and only for opted-in requests."""
     token = _progress_requests.set(
-        tuple(req.request_id for req in requests if getattr(req.sampling_params, "emit_request_lifecycle", False))
+        tuple(req.request_id for req in requests if req.sampling_params.emit_request_lifecycle)
     )
     try:
         yield
@@ -63,7 +63,7 @@ class ProgressBarMixin:
                         pbar.update()
     """
 
-    def progress_bar(self, iterable=None, total=None):
+    def progress_bar(self, iterable=None, total=None, *, report_progress=False):
         if not hasattr(self, "_progress_bar_config"):
             self._progress_bar_config = {}
         elif not isinstance(self._progress_bar_config, dict):
@@ -81,9 +81,9 @@ class ProgressBarMixin:
         bar = tqdm(iterable, total=total, **config)
         sink = _progress_sink.get()
         request_ids = _progress_requests.get()
-        # H3 and other explicit-step loops already call update() once per step.
-        # Keep tqdm's iterable path unchanged; no separate progress-bar wrapper.
-        if iterable is None and total and sink is not None and request_ids:
+        # Only opt in loops whose total covers the entire request. Windowed or
+        # multi-stage loops must not report a local percentage as job progress.
+        if report_progress and iterable is None and total and sink is not None and request_ids:
             update = bar.update
             completed = 0
 

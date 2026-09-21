@@ -136,7 +136,7 @@ The job is then re-read so a completed save is not orphaned.
 | `model` | string | Model name recorded for the job. |
 | `prompt` | string | Generation prompt. |
 | `status` | string | `queued`, `in_progress`, `completed`, or `failed`. |
-| `progress` | integer | Best-effort denoising progress from 0 to 100. Supported pipelines report intermediate values capped at 99; saving the completed video sets it to 100. Other pipelines remain at 0 until completion. |
+| `progress` | integer | Best-effort denoising progress from 0 to 100. MiniMax-H3 with the request-mode multiprocess executor reports intermediate values capped at 99; saving the completed video sets it to 100. Other pipelines remain at 0 until completion. |
 | `size` | string or null | Requested `WIDTHxHEIGHT` value from `size`; may be null when dimensions were supplied through other parameters. |
 | `seconds` | string | Requested `seconds` value, or the job record default `"4"`. For the resolved duration, use `duration_s` when available. |
 | `quality` | string | Requested quality, or `"default"`. |

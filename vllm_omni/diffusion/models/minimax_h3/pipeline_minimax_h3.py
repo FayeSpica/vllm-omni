@@ -1864,7 +1864,7 @@ class MiniMaxH3Pipeline(
         branch = inputs["branch"]
         transformer = self._transformer_for_task(task)
         with self._resident_dit_layers_on_device(enabled=transformer is self.transformer):
-            with self.progress_bar(total=len(inputs["sigmas_video"]) - 1) as progress:
+            with self.progress_bar(total=len(inputs["sigmas_video"]) - 1, report_progress=True) as progress:
                 video_rows, audio_rows = minimax_h3_denoise_loop(
                     model=transformer,
                     positive=branch,

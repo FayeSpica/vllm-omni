@@ -474,41 +474,41 @@ class VLLMOmniClient:
             data = await url_json(session, url, "post", data=form)
             if (job_id := data.get("id", None)) is None:
                 raise RuntimeError("API response missing job 'id' field - expected OpenAI compliant format")
-            if (job_status := data.get("status", None)) is None:
-                raise RuntimeError("API response missing job 'status' field - expected OpenAI compliant format")
-
-            progress = 0
-
-            def report_progress():
-                nonlocal progress
-                value = data.get("progress")
-                if isinstance(value, (int, float)) and 0 <= value <= 100:
-                    progress = max(progress, min(99, int(value)))
-                if on_progress is not None:
-                    on_progress(progress)
-
-            report_progress()
-            # Poll for video generation job completion
-            deadline = asyncio.get_running_loop().time() + self.max_poll_duration
             url = f"{self.base_url}/videos/{job_id}"
-            while job_status not in {"completed", "failed"}:
-                await asyncio.sleep(self.poll_interval)
-
-                data = await url_json(session, url)
+            try:
                 if (job_status := data.get("status", None)) is None:
                     raise RuntimeError("API response missing job 'status' field - expected OpenAI compliant format")
+
+                progress = 0
+
+                def report_progress():
+                    nonlocal progress
+                    value = data.get("progress")
+                    if isinstance(value, (int, float)) and 0 <= value <= 100:
+                        progress = max(progress, min(99, int(value)))
+                    if on_progress is not None:
+                        on_progress(progress)
+
                 report_progress()
-                if job_status not in {"completed", "failed"} and asyncio.get_running_loop().time() >= deadline:
-                    raise RuntimeError(f"Timed out waiting for video job {job_id} to complete")
+                # Poll for video generation job completion
+                deadline = asyncio.get_running_loop().time() + self.max_poll_duration
+                while job_status not in {"completed", "failed"}:
+                    await asyncio.sleep(self.poll_interval)
 
-            if job_status == "failed":
-                raise RuntimeError(f"Video job failed: {data}")
+                    data = await url_json(session, url)
+                    if (job_status := data.get("status", None)) is None:
+                        raise RuntimeError("API response missing job 'status' field - expected OpenAI compliant format")
+                    report_progress()
+                    if job_status not in {"completed", "failed"} and asyncio.get_running_loop().time() >= deadline:
+                        raise RuntimeError(f"Timed out waiting for video job {job_id} to complete")
 
-            # Retrieve completed content
-            video_bytes = await url_bytes(session, f"{url}/content")
+                if job_status == "failed":
+                    raise RuntimeError(f"Video job failed: {data}")
 
-            # Decode video and make a best effort at cleaning up server resources
-            try:
+                # Retrieve completed content
+                video_bytes = await url_bytes(session, f"{url}/content")
+
+                # Decode before reporting completion.
                 video = bytes_to_video(video_bytes)
                 if on_progress is not None:
                     on_progress(100)

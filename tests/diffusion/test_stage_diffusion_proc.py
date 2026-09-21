@@ -141,7 +141,7 @@ async def test_proc_non_streaming_forwards_lifecycle_before_final_output(event):
         request_id="req-lifecycle",
         prompt="prompt",
         sampling_params_dict=asdict(OmniDiffusionSamplingParams()),
-        on_request_started=_capture,
+        on_request_lifecycle=_capture,
     )
 
     assert intermediate_outputs == [lifecycle]
