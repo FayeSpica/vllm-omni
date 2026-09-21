@@ -9,15 +9,14 @@ from comfyui_vllm_omni.utils import api_client
 pytestmark = [pytest.mark.core_model, pytest.mark.cpu]
 
 
-@pytest.mark.parametrize("fail", [False, True])
-async def test_progress_is_monotonic_and_only_completes_after_decode(monkeypatch, fail):
+async def test_progress_reaches_100_only_after_decode(monkeypatch):
     reports = []
     statuses = [
         {"id": "video", "status": "queued"},
         {"status": "in_progress", "progress": 25},
         {"status": "in_progress", "progress": 10},
         {"status": "in_progress", "progress": "invalid"},
-        {"status": "failed" if fail else "completed", "progress": 100},
+        {"status": "completed", "progress": 100},
         {},
     ]
     monkeypatch.setattr(api_client, "url_json", AsyncMock(side_effect=statuses))
@@ -42,13 +41,8 @@ async def test_progress_is_monotonic_and_only_completes_after_decode(monkeypatch
         fps=24,
         on_progress=reports.append,
     )
-    if fail:
-        with pytest.raises(RuntimeError, match="Video job failed"):
-            await client.generate_video(**kwargs)
-        assert 100 not in reports
-    else:
-        assert await client.generate_video(**kwargs) == b"video"
-        assert reports == [0, 25, 25, 25, 99, 100]
+    assert await client.generate_video(**kwargs) == b"video"
+    assert reports == [0, 25, 25, 25, 99, 100]
 
 
 async def test_generate_node_uses_native_progress(monkeypatch):

@@ -3297,7 +3297,7 @@ def test_video_polling_exposes_denoising_progress_before_completion(test_client,
         async def generate(self, prompt, request_id, sampling_params_list):
             assert sampling_params_list[0].emit_request_lifecycle
             yield MockVideoResult([], custom_output={DIFFUSION_REQUEST_LIFECYCLE_KEY: DIFFUSION_REQUEST_STARTED})
-            # A later stage/bar must never make the public progress go backwards.
+            # A lower progress update must not decrease the stored percentage.
             for value in (25, 10, 50):
                 yield MockVideoResult([], custom_output={DIFFUSION_PROGRESS_KEY: value})
             reached_step.set()

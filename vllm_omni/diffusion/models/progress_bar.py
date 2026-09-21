@@ -63,7 +63,7 @@ class ProgressBarMixin:
                         pbar.update()
     """
 
-    def progress_bar(self, iterable=None, total=None, *, report_progress=False):
+    def progress_bar(self, iterable=None, total=None):
         if not hasattr(self, "_progress_bar_config"):
             self._progress_bar_config = {}
         elif not isinstance(self._progress_bar_config, dict):
@@ -81,9 +81,8 @@ class ProgressBarMixin:
         bar = tqdm(iterable, total=total, **config)
         sink = _progress_sink.get()
         request_ids = _progress_requests.get()
-        # Only opt in loops whose total covers the entire request. Windowed or
-        # multi-stage loops must not report a local percentage as job progress.
-        if report_progress and iterable is None and total and sink is not None and request_ids:
+        # Report explicit step updates through the active request transport.
+        if iterable is None and total and sink is not None and request_ids:
             update = bar.update
             completed = 0
 

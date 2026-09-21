@@ -11,6 +11,7 @@ import pytest
 from vllm.v1.engine.exceptions import EngineDeadError
 
 from vllm_omni.diffusion.data import (
+    DIFFUSION_PROGRESS_KEY,
     DIFFUSION_REQUEST_LIFECYCLE_KEY,
     DIFFUSION_REQUEST_STARTED,
     OmniDiffusionConfig,
@@ -89,7 +90,7 @@ async def test_inline_dispatch_request_success(client, mock_engine):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "event", [{DIFFUSION_REQUEST_LIFECYCLE_KEY: DIFFUSION_REQUEST_STARTED}, {"_diffusion_progress": 50}]
+    "event", [{DIFFUSION_REQUEST_LIFECYCLE_KEY: DIFFUSION_REQUEST_STARTED}, {DIFFUSION_PROGRESS_KEY: 50}]
 )
 async def test_inline_non_streaming_dispatches_lifecycle_before_final(client, mock_engine, event):
     lifecycle = OmniRequestOutput.from_diffusion(

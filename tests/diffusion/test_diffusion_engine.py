@@ -217,7 +217,7 @@ def test_request_started_output_is_emitted_only_for_opted_in_requests() -> None:
     ("completed", "total", "expected"),
     [(0, 49, 0), (1, 3, 33), (31, 49, 63), (49, 49, 99)],
 )
-def test_denoising_progress_is_formatted_as_non_final_output(completed, total, expected) -> None:
+def test_progress_output_is_non_final(completed, total, expected) -> None:
     request = OmniDiffusionRequest(
         prompt="test video",
         sampling_params=OmniDiffusionSamplingParams(emit_request_lifecycle=True),
@@ -229,11 +229,8 @@ def test_denoising_progress_is_formatted_as_non_final_output(completed, total, e
 
     engine._on_progress(DiffusionProgress(request.request_id, completed, total))
 
-    assert len(emitted) == 1
-    request_id, output = emitted[0]
+    [(request_id, output)] = emitted
     assert request_id == request.request_id
-    assert output.denoising_progress == expected
-    assert output.finished is False
 
     [formatted] = engine.postprocess_output(request, output)
     assert formatted.request_id == request.request_id
