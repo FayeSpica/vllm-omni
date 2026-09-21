@@ -23,6 +23,7 @@ from .comfyui_vllm_omni.nodes import (
     VLLMOmniGenerateVideo,
     VLLMOmniLatentMaskEditing,
     VLLMOmniMiniMaxH3Params,
+    VLLMOmniMiniMaxH3TemporalMask,
     VLLMOmniQwenTTSParams,
     VLLMOmniRemoteLoRA,
     VLLMOmniSamplingParamsList,
@@ -32,11 +33,10 @@ from .comfyui_vllm_omni.nodes import (
     VLLMOmniVoiceClone,
     VLLMOmniWanParams,
 )
-from .comfyui_vllm_omni.temporal_mask import VLLMOmniH3TemporalMask
 
 # A dictionary that contains all nodes you want to export with their names
 NODE_CLASS_MAPPINGS = {
-    "VLLMOmniH3TemporalMask": VLLMOmniH3TemporalMask,
+    "VLLMOmniMiniMaxH3TemporalMask": VLLMOmniMiniMaxH3TemporalMask,
     # === Generation ===
     "VLLMOmniGenerateImage": VLLMOmniGenerateImage,
     "VLLMOmniGenerateVideo": VLLMOmniGenerateVideo,
@@ -59,7 +59,7 @@ NODE_CLASS_MAPPINGS = {
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "VLLMOmniH3TemporalMask": "MiniMax-H3 Temporal Mask",
+    "VLLMOmniMiniMaxH3TemporalMask": "MiniMax-H3 Temporal Mask",
     # === Generation ===
     "VLLMOmniGenerateImage": "Generate Image",
     "VLLMOmniGenerateVideo": "Generate Video",

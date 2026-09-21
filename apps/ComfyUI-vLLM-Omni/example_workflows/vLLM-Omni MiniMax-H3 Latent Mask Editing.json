@@ -250,10 +250,10 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "Replace the bag with a small orange tabby cat curled up asleep. Source: 243 frames at 24 FPS. Grow Mask: 32 pixels. Fixed seed 0, 50 steps. Audio mask 0.5 matches the Object Removal baseline. Enable this group and mute other generation groups before running. Quality is not yet validated. Video and spatial mask are linked from Shared Inputs. Grow Mask remains independent for this case."
+        "Replace the masked region with a curled orange cat gently swaying its tail.\n\nThis case has its own rectangular mask. Leave room for the entire cat and tail motion; check the red overlay before generating.\n\nAudio mask 0 preserves source audio latents. To request new sounds, change the audio prompt and mask together. Fractional audio masks do not selectively retain the school chime while adding meows."
       ],
       "widgets_values_named": {
-        "text": "Replace the bag with a small orange tabby cat curled up asleep. Source: 243 frames at 24 FPS. Grow Mask: 32 pixels. Fixed seed 0, 50 steps. Audio mask 0.5 matches the Object Removal baseline. Enable this group and mute other generation groups before running. Quality is not yet validated. Video and spatial mask are linked from Shared Inputs. Grow Mask remains independent for this case."
+        "text": "Replace the masked region with a curled orange cat gently swaying its tail.\n\nThis case has its own rectangular mask. Leave room for the entire cat and tail motion; check the red overlay before generating.\n\nAudio mask 0 preserves source audio latents. To request new sounds, change the audio prompt and mask together. Fractional audio masks do not selectively retain the school chime while adding meows."
       },
       "color": "#333",
       "bgcolor": "#222"
@@ -448,10 +448,10 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "Temporal mask follows the actual source frame count/FPS and shared target duration. Preserve fraction selects the available prefix to retain. Boundary rounds down to complete H3 native chunks; a short segment before the requested boundary may regenerate. Preview time mapping is schematic."
+        "Regenerate the ending with an overcast sky, heavy rain, and distant lightning.\n\nPreserve fraction controls how much of the available source prefix is retained. Match Temporal Mask duration to Generate Video duration; these values are not linked.\n\nThe boundary rounds down to complete H3 chunks. White allows regeneration, but does not force existing subjects to disappear.\n\nThe red preview is schematic. Audio mask affects the entire clip, including the preserved video prefix."
       ],
       "widgets_values_named": {
-        "text": "Temporal mask follows the actual source frame count/FPS and shared target duration. Preserve fraction selects the available prefix to retain. Boundary rounds down to complete H3 native chunks; a short segment before the requested boundary may regenerate. Preview time mapping is schematic."
+        "text": "Regenerate the ending with an overcast sky, heavy rain, and distant lightning.\n\nPreserve fraction controls how much of the available source prefix is retained. Match Temporal Mask duration to Generate Video duration; these values are not linked.\n\nThe boundary rounds down to complete H3 chunks. White allows regeneration, but does not force existing subjects to disappear.\n\nThe red preview is schematic. Audio mask affects the entire clip, including the preserved video prefix."
       },
       "color": "#333",
       "bgcolor": "#222"
@@ -627,7 +627,7 @@
     },
     {
       "id": 59,
-      "type": "VLLMOmniH3TemporalMask",
+      "type": "VLLMOmniMiniMaxH3TemporalMask",
       "pos": [
         580,
         6040
@@ -693,12 +693,6 @@
           ]
         },
         {
-          "localized_name": "summary",
-          "name": "summary",
-          "type": "STRING",
-          "links": []
-        },
-        {
           "localized_name": "preview_fps",
           "name": "preview_fps",
           "type": "FLOAT",
@@ -725,7 +719,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "VLLMOmniH3TemporalMask"
+        "Node name for S&R": "VLLMOmniMiniMaxH3TemporalMask"
       },
       "widgets_values": [
         24,
@@ -761,10 +755,10 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "Temporal mask follows the actual source frame count/FPS and shared target duration. Output duration must exceed the source duration. The original, unpadded source determines the preserved prefix. Boundary rounds down to complete H3 native chunks; a short segment before the requested boundary may regenerate. Preview time mapping is schematic."
+        "Extend into a summer starry night. Follow a firework rising behind the school with a slow upward camera tilt, ending at its burst.\n\nSet the same duration in Temporal Mask and Generate Video, longer than the source. These values are not linked. The original source length determines the preserved prefix.\n\nThe boundary rounds down to H3 chunks. Preview holds the final source frame under the red overlay; it is not the generated ending.\n\nAudio mask affects the whole clip, not only the extension."
       ],
       "widgets_values_named": {
-        "text": "Temporal mask follows the actual source frame count/FPS and shared target duration. Output duration must exceed the source duration. The original, unpadded source determines the preserved prefix. Boundary rounds down to complete H3 native chunks; a short segment before the requested boundary may regenerate. Preview time mapping is schematic."
+        "text": "Extend into a summer starry night. Follow a firework rising behind the school with a slow upward camera tilt, ending at its burst.\n\nSet the same duration in Temporal Mask and Generate Video, longer than the source. These values are not linked. The original source length determines the preserved prefix.\n\nThe boundary rounds down to H3 chunks. Preview holds the final source frame under the red overlay; it is not the generated ending.\n\nAudio mask affects the whole clip, not only the extension."
       },
       "color": "#333",
       "bgcolor": "#222"
@@ -851,10 +845,10 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## Object Removal\n\nUse the shared source video and a matching spatial mask. White edits; black preserves.\n\nCover the entire bag, handle, straps, and contact shadow. Check coverage in Mask Preview.\n\nDescribe the area as empty from the first frame to the last, with continuous wall and pavement textures.\n\nKeep frame and references disconnected for this T2VA setup.\n\nTo run only this case, select Save Video (Object Removal) and click Execute to selected output nodes."
+        "Reconstruct the surrounding wall inside the mask.\n\nSet this case's Mask Canvas, Mask Rectangle, and Rectangle Position to cover the object, handle, and shadow with some background margin. Preview coverage before generating.\n\nSymmetric expansion by d pixels: x/y minus d; width/height plus 2d. A 32-pixel margin improved this school example.\n\nAudio mask 0 preserves source audio latents; reconstruction is not lossless."
       ],
       "widgets_values_named": {
-        "text": "## Object Removal\n\nUse the shared source video and a matching spatial mask. White edits; black preserves.\n\nCover the entire bag, handle, straps, and contact shadow. Check coverage in Mask Preview.\n\nDescribe the area as empty from the first frame to the last, with continuous wall and pavement textures.\n\nKeep frame and references disconnected for this T2VA setup.\n\nTo run only this case, select Save Video (Object Removal) and click Execute to selected output nodes."
+        "text": "Reconstruct the surrounding wall inside the mask.\n\nSet this case's Mask Canvas, Mask Rectangle, and Rectangle Position to cover the object, handle, and shadow with some background margin. Preview coverage before generating.\n\nSymmetric expansion by d pixels: x/y minus d; width/height plus 2d. A 32-pixel margin improved this school example.\n\nAudio mask 0 preserves source audio latents; reconstruction is not lossless."
       },
       "color": "#333",
       "bgcolor": "#222"
@@ -2296,13 +2290,13 @@
       "mode": 0,
       "inputs": [],
       "outputs": [],
-      "title": "Latent-mask editing server prerequisite",
+      "title": "Usage Guide",
       "properties": {},
       "widgets_values": [
-        "Requires a vLLM-Omni server that declares latent-mask editing support (MiniMax-H3, EDIT-01). The source clip and video/audio noise masks are uploaded to /v1/videos; 0 preserves, 1 regenerates, fractional blends."
+        "Use a compatible MiniMax-H3 latent-edit server. Select a source video and set the server URL/model in each Generate Video node.\n\nSelect one Save Preview or Save Video output, then use Execute to selected output nodes. Running the whole workflow submits all four cases.\n\nMask: 0 preserves source latents; 1 regenerates. Audio mask applies to the whole clip, not individual sounds. Preview overlays are silent and do not run inference."
       ],
       "widgets_values_named": {
-        "text": "Requires a vLLM-Omni server that declares latent-mask editing support (MiniMax-H3, EDIT-01). The source clip and video/audio noise masks are uploaded to /v1/videos; 0 preserves, 1 regenerates, fractional blends."
+        "text": "Use a compatible MiniMax-H3 latent-edit server. Select a source video and set the server URL/model in each Generate Video node.\n\nSelect one Save Preview or Save Video output, then use Execute to selected output nodes. Running the whole workflow submits all four cases.\n\nMask: 0 preserves source latents; 1 regenerates. Audio mask applies to the whole clip, not individual sounds. Preview overlays are silent and do not run inference."
       },
       "color": "#432",
       "bgcolor": "#000"
@@ -3944,7 +3938,7 @@
     },
     {
       "id": 44,
-      "type": "VLLMOmniH3TemporalMask",
+      "type": "VLLMOmniMiniMaxH3TemporalMask",
       "pos": [
         580,
         4440
@@ -4010,12 +4004,6 @@
           ]
         },
         {
-          "localized_name": "summary",
-          "name": "summary",
-          "type": "STRING",
-          "links": []
-        },
-        {
           "localized_name": "preview_fps",
           "name": "preview_fps",
           "type": "FLOAT",
@@ -4042,7 +4030,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "VLLMOmniH3TemporalMask"
+        "Node name for S&R": "VLLMOmniMiniMaxH3TemporalMask"
       },
       "widgets_values": [
         24,
@@ -4927,7 +4915,7 @@
     [
       142,
       44,
-      2,
+      1,
       73,
       2,
       "FLOAT"
@@ -4935,7 +4923,7 @@
     [
       146,
       59,
-      2,
+      1,
       77,
       2,
       "FLOAT"
@@ -4943,7 +4931,7 @@
     [
       147,
       44,
-      3,
+      2,
       90,
       0,
       "IMAGE"
@@ -4959,7 +4947,7 @@
     [
       149,
       44,
-      4,
+      3,
       90,
       2,
       "MASK"
@@ -4967,7 +4955,7 @@
     [
       150,
       44,
-      3,
+      2,
       91,
       0,
       "IMAGE"
@@ -4991,7 +4979,7 @@
     [
       153,
       59,
-      3,
+      2,
       93,
       0,
       "IMAGE"
@@ -5007,7 +4995,7 @@
     [
       155,
       59,
-      4,
+      3,
       93,
       2,
       "MASK"
@@ -5015,7 +5003,7 @@
     [
       156,
       59,
-      3,
+      2,
       94,
       0,
       "IMAGE"
