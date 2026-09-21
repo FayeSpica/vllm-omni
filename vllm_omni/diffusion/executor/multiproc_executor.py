@@ -26,6 +26,7 @@ from vllm.v1.executor.multiproc_executor import set_multiprocessing_worker_envs
 from vllm_omni.diffusion.data import SHUTDOWN_MESSAGE, AsyncDiffusionOutput, AsyncOutputKind, DiffusionOutput
 from vllm_omni.diffusion.executor.abstract import DiffusionExecutor
 from vllm_omni.diffusion.ipc import DIFFUSION_RPC_RESULT_ENVELOPE, unpack_diffusion_output_shm
+from vllm_omni.diffusion.models.progress_bar import DiffusionProgress
 from vllm_omni.diffusion.offloader.config import (
     TEXT_ENCODER_COMPONENT,
     any_selected_component_uses_allgather,
@@ -914,6 +915,15 @@ class MultiprocDiffusionExecutor(DiffusionExecutor):
                 logger.exception("Result pump dequeue failed")
                 if self._is_failed:
                     break
+                continue
+
+            if isinstance(msg, DiffusionProgress):
+                callback = getattr(self, "progress_callback", None)
+                if callback is not None:
+                    try:
+                        callback(msg)
+                    except Exception:
+                        logger.warning("Failed to deliver diffusion progress for %s", msg.request_id, exc_info=True)
                 continue
 
             if not isinstance(msg, AsyncDiffusionOutput):

@@ -105,11 +105,14 @@ async def test_proc_streaming_request_yields_each_engine_chunk():
 
 
 @pytest.mark.asyncio
-async def test_proc_non_streaming_forwards_lifecycle_before_final_output():
+@pytest.mark.parametrize(
+    "event", [{DIFFUSION_REQUEST_LIFECYCLE_KEY: DIFFUSION_REQUEST_STARTED}, {"_diffusion_progress": 50}]
+)
+async def test_proc_non_streaming_forwards_lifecycle_before_final_output(event):
     lifecycle = OmniRequestOutput.from_diffusion(
         request_id="",
         images=[],
-        custom_output={DIFFUSION_REQUEST_LIFECYCLE_KEY: DIFFUSION_REQUEST_STARTED},
+        custom_output=event,
         finished=False,
     )
     intermediate = OmniRequestOutput.from_diffusion(

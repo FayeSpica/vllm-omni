@@ -88,11 +88,14 @@ async def test_inline_dispatch_request_success(client, mock_engine):
 
 
 @pytest.mark.asyncio
-async def test_inline_non_streaming_dispatches_lifecycle_before_final(client, mock_engine):
+@pytest.mark.parametrize(
+    "event", [{DIFFUSION_REQUEST_LIFECYCLE_KEY: DIFFUSION_REQUEST_STARTED}, {"_diffusion_progress": 50}]
+)
+async def test_inline_non_streaming_dispatches_lifecycle_before_final(client, mock_engine, event):
     lifecycle = OmniRequestOutput.from_diffusion(
         request_id="req-lifecycle",
         images=[],
-        custom_output={DIFFUSION_REQUEST_LIFECYCLE_KEY: DIFFUSION_REQUEST_STARTED},
+        custom_output=event,
         finished=False,
     )
     intermediate = OmniRequestOutput.from_diffusion(

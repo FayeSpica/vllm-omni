@@ -1697,6 +1697,14 @@ class OmniDiffusionConfig:
 
 DIFFUSION_REQUEST_LIFECYCLE_KEY = "_diffusion_request_lifecycle"
 DIFFUSION_REQUEST_STARTED = "started"
+DIFFUSION_PROGRESS_KEY = "_diffusion_progress"
+
+
+def is_diffusion_request_lifecycle_output(output: Any) -> bool:
+    custom = getattr(output, "custom_output", None)
+    return is_diffusion_request_started_output(output) or (
+        isinstance(custom, dict) and DIFFUSION_PROGRESS_KEY in custom
+    )
 
 
 def is_diffusion_request_started_output(output: Any) -> bool:
@@ -1757,6 +1765,7 @@ class DiffusionOutput:
 
     # Internal control-plane event emitted on first scheduler admission.
     request_started: bool = False
+    denoising_progress: int | None = None
 
     # Typed video-media contract. Declared last so the pre-existing positional
     # constructor order (output, trajectory_timesteps, ...) that out-of-tree
