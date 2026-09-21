@@ -88,9 +88,12 @@ def test_latent_edit_serialization(mock_server):
 
     assert fields["source_video"]["file"] is True
     assert fields["source_video"]["content_type"] == "video/mp4"
-    assert fields["audio_noise_mask"] == "0.5"
+    for name in ("video_noise_mask", "audio_noise_mask"):
+        assert fields[name]["file"] is True
+        assert fields[name]["content_type"] == "application/json"
+    assert fields["audio_noise_mask"]["json"] == 0.5
 
-    video_mask = json.loads(fields["video_noise_mask"])
+    video_mask = fields["video_noise_mask"]["json"]
     assert len(video_mask) == 7  # num_frames=22 aligns to 22 (17n+5) -> Tv = 7
     assert len(video_mask[0]) == 6  # height 120 floors to 96 (multiple of 32) -> gh 6
     assert len(video_mask[0][0]) == 10  # width 160 -> gw 10

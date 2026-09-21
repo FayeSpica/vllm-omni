@@ -83,6 +83,8 @@ async def create_video(request: Request):
                 "filename": value.filename,
                 "content_type": value.content_type,
             }
+            if value.content_type == "application/json":
+                fields[key]["json"] = json.loads(data)
         else:
             fields[key] = str(value)
     _record(fields)
