@@ -45,7 +45,7 @@ async def test_progress_reaches_100_only_after_decode(monkeypatch):
     assert reports == [0, 25, 25, 25, 99, 100]
 
 
-async def test_generate_node_uses_native_progress(monkeypatch):
+async def test_generate_node_updates_progress(monkeypatch):
     from types import SimpleNamespace
 
     import comfy.utils

@@ -12,6 +12,8 @@ from vllm_omni.diffusion.models.progress_bar import (
     progress_sink,
 )
 
+pytestmark = [pytest.mark.core_model, pytest.mark.cpu]
+
 
 def _make_request(request_id, enabled=True):
     return SimpleNamespace(request_id=request_id, sampling_params=SimpleNamespace(emit_request_lifecycle=enabled))

@@ -1770,12 +1770,13 @@ class DiffusionOutput:
 
     # Internal control-plane event emitted on first scheduler admission.
     request_started: bool = False
-    denoising_progress: int | None = None
 
-    # Typed video-media contract. Declared last so the pre-existing positional
+    # Typed video-media contract. Appended after legacy fields so the positional
     # constructor order (output, trajectory_timesteps, ...) that out-of-tree
     # pipelines rely on is preserved. Mutually exclusive with ``output``.
     media: DiffusionMediaOutput | None = None
+
+    denoising_progress: int | None = None
 
     def __post_init__(self) -> None:
         if self.media is not None and not isinstance(self.media, DiffusionMediaOutput):
