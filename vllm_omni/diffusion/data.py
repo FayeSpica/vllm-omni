@@ -1701,10 +1701,15 @@ DIFFUSION_PROGRESS_KEY = "_diffusion_progress"
 
 
 def is_diffusion_request_lifecycle_output(output: Any) -> bool:
-    custom = getattr(output, "custom_output", None)
-    return is_diffusion_request_started_output(output) or (
-        isinstance(custom, dict) and DIFFUSION_PROGRESS_KEY in custom
-    )
+    return is_diffusion_request_started_output(output) or get_diffusion_progress(output) is not None
+
+
+def get_diffusion_progress(output: Any) -> int | None:
+    """Return the denoising percentage, or None for outputs without progress."""
+    custom_output = getattr(output, "custom_output", None)
+    if isinstance(custom_output, dict):
+        return custom_output.get(DIFFUSION_PROGRESS_KEY)
+    return None
 
 
 def is_diffusion_request_started_output(output: Any) -> bool:

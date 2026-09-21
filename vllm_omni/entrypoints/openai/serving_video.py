@@ -19,7 +19,7 @@ from PIL import Image
 from vllm.engine.protocol import EngineClient
 from vllm.logger import init_logger
 
-from vllm_omni.diffusion.data import DIFFUSION_PROGRESS_KEY, is_diffusion_request_started_output
+from vllm_omni.diffusion.data import get_diffusion_progress, is_diffusion_request_started_output
 from vllm_omni.diffusion.model_metadata import DiffusionModelMetadata, get_diffusion_model_metadata
 from vllm_omni.diffusion.utils.media_utils import count_mp4_frames, normalize_preencode_batch_frames
 from vllm_omni.entrypoints.async_omni import ABORT_TIMEOUT_S, AsyncOmni
@@ -730,10 +730,10 @@ class OmniOpenAIServingVideo:
             request_id=request_id,
             sampling_params_list=sampling_params_list,
         ):
-            custom = getattr(output, "custom_output", None)
-            if isinstance(custom, dict) and DIFFUSION_PROGRESS_KEY in custom:
+            progress = get_diffusion_progress(output)
+            if progress is not None:
                 if on_progress is not None:
-                    await on_progress(custom[DIFFUSION_PROGRESS_KEY])
+                    await on_progress(progress)
                 continue
             if is_diffusion_request_started_output(output):
                 if on_started is not None and not started_notified:
