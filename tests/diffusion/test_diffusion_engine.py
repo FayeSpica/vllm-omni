@@ -215,22 +215,22 @@ def test_request_started_output_is_emitted_only_for_opted_in_requests() -> None:
 @pytest.mark.cpu
 @pytest.mark.parametrize(
     ("completed", "total", "expected"),
-    [(0, 49, 0), (1, 3, 33), (31, 49, 63), (49, 49, 99)],
+    [(0, 49, 0), (1, 3, 33), (31, 49, 63), (49, 49, 100)],
 )
 def test_progress_output_is_non_final(completed, total, expected) -> None:
     request = OmniDiffusionRequest(
         prompt="test video",
-        sampling_params=OmniDiffusionSamplingParams(emit_request_lifecycle=True),
+        sampling_params=OmniDiffusionSamplingParams(),
         request_id="video-progress",
     )
     engine = object.__new__(DiffusionEngine)
     emitted = []
-    engine._put_output = lambda request_id, output: emitted.append((request_id, output))
+    engine._out_streams = {request.request_id: emitted}
+    engine._put_queue_output = lambda stream, output: stream.append(output)
 
     engine._on_progress(DiffusionProgress(request.request_id, completed, total))
 
-    [(request_id, output)] = emitted
-    assert request_id == request.request_id
+    [output] = emitted
 
     [formatted] = engine.postprocess_output(request, output)
     assert formatted.request_id == request.request_id

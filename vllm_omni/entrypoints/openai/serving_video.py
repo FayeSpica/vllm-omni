@@ -744,7 +744,7 @@ class OmniOpenAIServingVideo:
 
         # Common generation logic for both paths
         engine_client = cast(AsyncOmni, self._engine_client)
-        gen_params.emit_request_lifecycle = on_started is not None or on_progress is not None
+        gen_params.emit_request_lifecycle = on_started is not None
         sampling_params_list = build_stage_sampling_params_list(
             list(stage_configs),
             get_default_sampling_params_list(engine_client),

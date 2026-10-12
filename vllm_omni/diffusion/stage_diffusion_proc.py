@@ -35,7 +35,7 @@ from vllm.v1.utils import shutdown
 
 from vllm_omni.diffusion.data import (
     DiffusionRequestAbortedError,
-    is_diffusion_request_lifecycle_output,
+    is_diffusion_control_output,
 )
 from vllm_omni.diffusion.diffusion_engine import DiffusionEngine
 from vllm_omni.diffusion.request import OmniDiffusionRequest
@@ -206,7 +206,7 @@ class StageDiffusionProc:
         result = None
         async for results in self._engine.step_streaming(request):
             output = results[0]
-            if is_diffusion_request_lifecycle_output(output) and on_request_lifecycle is not None:
+            if is_diffusion_control_output(output) and on_request_lifecycle is not None:
                 if not output.request_id:
                     output.request_id = request_id
                 await on_request_lifecycle(output)

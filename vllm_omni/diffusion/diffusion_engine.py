@@ -45,6 +45,7 @@ from vllm_omni.diffusion.io_support import (
     supports_audio_output,
     supports_multimodal_input,
 )
+from vllm_omni.diffusion.models.progress_bar import DiffusionProgress
 from vllm_omni.diffusion.offloader.config import (
     OffloadStrategy,
     any_selected_component_uses_allgather,
@@ -300,8 +301,7 @@ class DiffusionEngine:
                     kv_vllm_config=kv_vllm_config,
                 )
             self._init_runtime_state()
-            if self.executor.uses_multiproc:
-                self.executor.progress_callback = self._on_progress
+            self.executor.progress_callback = self._on_progress
             self._init_execute_fn()
             self._log_execution_mode(od_config)
         except Exception:
@@ -554,13 +554,15 @@ class DiffusionEngine:
             final_output = output
         return final_output or []
 
-    def _on_progress(self, progress) -> None:
-        # Denoising is only part of the job; reserve 100 for persisted output.
-        if progress.total > 0:
-            self._put_output(
-                progress.request_id,
-                DiffusionOutput(finished=False, denoising_progress=min(99, progress.completed * 100 // progress.total)),
-            )
+    def _on_progress(self, progress: DiffusionProgress) -> None:
+        # The result pump must not wait for the engine execution lock.
+        queue = self._out_streams.get(progress.request_id)
+        if queue is None or progress.total <= 0:
+            return
+        self._put_queue_output(
+            queue,
+            DiffusionOutput(finished=False, denoising_progress=progress.completed * 100 // progress.total),
+        )
 
     def postprocess_output(
         self,
@@ -1031,10 +1033,17 @@ class DiffusionEngine:
                 )
                 self._put_output(request_id, out)
                 delivered_finished_req_ids.add(request_id)
-            elif req_output is not None and req_output.result is not None:
-                # This is a non-terminal chunk. It is not in scheduler's
-                # finished_ids, but it still belongs on the request stream.
-                self._put_output(request_id, req_output.result)
+            else:
+                progress = self.scheduler.get_request_progress(request_id)
+                if progress is not None:
+                    completed, total = progress
+                    self._put_output(
+                        request_id,
+                        DiffusionOutput(finished=False, denoising_progress=completed * 100 // total),
+                    )
+                if req_output is not None and req_output.result is not None:
+                    # Preserve non-terminal media chunks alongside progress.
+                    self._put_output(request_id, req_output.result)
 
         # Then handle other requests that are finished in this round.
         for request_id in finished_ids - delivered_finished_req_ids:

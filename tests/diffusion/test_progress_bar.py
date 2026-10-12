@@ -20,18 +20,23 @@ def _make_request(request_id, enabled=True):
 
 
 @pytest.mark.parametrize("disabled", [True, False])
-def test_reports_steps_for_opted_in_requests(disabled):
+@pytest.mark.parametrize("iterable", [False, True])
+def test_reports_steps_independently_of_lifecycle(disabled, iterable):
     pipeline = ProgressBarMixin()
     pipeline.set_progress_bar_config(disable=disabled)
     events = []
     with (
         progress_sink(events.append),
-        progress_requests([_make_request("a"), _make_request("b"), _make_request("offline", False)]),
+        progress_requests([_make_request("a"), _make_request("b"), _make_request("c", False)]),
     ):
-        with pipeline.progress_bar(total=3) as bar:
-            for _ in range(3):
-                bar.update()
-    assert events == [DiffusionProgress(rid, step, 3) for step in range(1, 4) for rid in ("a", "b")]
+        if iterable:
+            for _ in pipeline.progress_bar(range(3)):
+                pass
+        else:
+            with pipeline.progress_bar(total=3) as bar:
+                for _ in range(3):
+                    bar.update()
+    assert events == [DiffusionProgress(rid, step, 3) for step in range(1, 4) for rid in ("a", "b", "c")]
 
 
 def test_request_context_does_not_leak_after_failure():

@@ -1809,7 +1809,7 @@ DIFFUSION_REQUEST_STARTED = "started"
 DIFFUSION_PROGRESS_KEY = "_diffusion_progress"
 
 
-def is_diffusion_request_lifecycle_output(output: Any) -> bool:
+def is_diffusion_control_output(output: Any) -> bool:
     return is_diffusion_request_started_output(output) or get_diffusion_progress(output) is not None
 
 
