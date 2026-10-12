@@ -7,6 +7,9 @@ from unittest.mock import MagicMock
 
 import pytest
 import torch
+
+pytest.importorskip("vllm_ascend")
+
 import vllm.v1.worker.gpu.spec_decode.speculator  # noqa: F401 -- Populate the module referenced by Ascend V2.
 import vllm_ascend.ops  # noqa: F401 -- Register Ascend operations before importing runners.
 from vllm.v1.kv_cache_interface import FullAttentionSpec, KVCacheConfig, KVCacheGroupSpec, KVCacheTensor
