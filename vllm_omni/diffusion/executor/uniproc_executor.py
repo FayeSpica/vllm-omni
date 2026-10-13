@@ -31,7 +31,7 @@ from vllm.v1.engine.exceptions import EngineDeadError
 
 from vllm_omni.diffusion.data import DiffusionOutput
 from vllm_omni.diffusion.executor.abstract import DiffusionExecutor
-from vllm_omni.diffusion.models.progress_bar import progress_sink
+from vllm_omni.diffusion.models.progress_bar import progress_callback
 from vllm_omni.platforms import current_omni_platform
 
 if TYPE_CHECKING:
@@ -108,7 +108,7 @@ class UniProcDiffusionExecutor(DiffusionExecutor):
                 "the worker runs on the calling thread, so a hung call blocks it."
             )
         try:
-            with progress_sink(self.progress_callback):
+            with progress_callback(self.progress_callback):
                 result = self.driver_worker.execute_method(method, *(args or ()), **(kwargs or {}))
         except Exception:
             if not self._device_is_usable():

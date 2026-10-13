@@ -949,15 +949,6 @@ class MultiprocDiffusionExecutor(DiffusionExecutor):
                     break
                 continue
 
-            if isinstance(msg, DiffusionProgress):
-                callback = self.progress_callback
-                if callback is not None:
-                    try:
-                        callback(msg)
-                    except Exception:
-                        logger.warning("Failed to deliver diffusion progress for %s", msg.request_id, exc_info=True)
-                continue
-
             if not isinstance(msg, AsyncDiffusionOutput):
                 # Non-async message: place into the sync buffer for
                 # collective_rpc() to consume via Path 2.
@@ -974,7 +965,16 @@ class MultiprocDiffusionExecutor(DiffusionExecutor):
             if self._closed and msg.kind != AsyncOutputKind.OUTPUT_READY:
                 continue
 
-            if msg.kind in (AsyncOutputKind.RPC_RESULT, AsyncOutputKind.COMPUTE_DONE):
+            if msg.kind == AsyncOutputKind.PROGRESS:
+                if self.progress_callback is not None:
+                    progress = cast(DiffusionProgress, msg.result)
+                    try:
+                        self.progress_callback(progress)
+                    except Exception:
+                        logger.warning(
+                            "Failed to deliver diffusion progress for %s", progress.request_id, exc_info=True
+                        )
+            elif msg.kind in (AsyncOutputKind.RPC_RESULT, AsyncOutputKind.COMPUTE_DONE):
                 with self._futures_lock:
                     fut = self._rpc_futures.pop(msg.rpc_id, None) if msg.rpc_id else None
                 if fut is not None and not fut.done():

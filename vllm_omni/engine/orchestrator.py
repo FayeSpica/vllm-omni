@@ -36,7 +36,7 @@ from vllm.v1.metrics.stats import IterationStats
 
 from vllm_omni.core.sched.omni_scheduling_coordinator import uses_native_mrv2_data_plane
 from vllm_omni.data_entry_keys import ASYNC_CHUNK_PREWARM_NS, FIRST_AUDIO_KEY, FIRST_AUDIO_REQUIRED_KEY
-from vllm_omni.diffusion.data import is_diffusion_control_output
+from vllm_omni.diffusion.data import get_diffusion_progress, is_diffusion_control_output
 from vllm_omni.distributed.omni_connectors.utils.config import stage_receives_chunks
 from vllm_omni.engine import OmniEngineCoreRequest
 from vllm_omni.engine.cfg_companion_tracker import CfgCompanionTracker
@@ -1882,6 +1882,18 @@ class OrchestratorBase:
     ) -> None:
         """Route a processed output: send to frontend and/or forward."""
         req_id = output.request_id
+        if get_diffusion_progress(output) is not None:
+            if self.stage_pools[stage_id].final_output and not req_state.session_owned:
+                await self.output_async_queue.put(
+                    OutputMessage(
+                        request_id=req_id,
+                        stage_id=stage_id,
+                        replica_id=replica_id,
+                        engine_outputs=output,
+                        finished=False,
+                    )
+                )
+            return
         finished = output.finished
         submit_ts = req_state.stage_submit_ts.get(stage_id)
         segment_finished = req_state.streaming.enabled and req_state.streaming.segment(stage_id).finished

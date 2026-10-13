@@ -8,8 +8,8 @@ import pytest
 from vllm_omni.diffusion.models.progress_bar import (
     DiffusionProgress,
     ProgressBarMixin,
+    progress_callback,
     progress_requests,
-    progress_sink,
 )
 
 pytestmark = [pytest.mark.core_model, pytest.mark.cpu]
@@ -26,7 +26,7 @@ def test_reports_steps_independently_of_lifecycle(disabled, iterable):
     pipeline.set_progress_bar_config(disable=disabled)
     events = []
     with (
-        progress_sink(events.append),
+        progress_callback(events.append),
         progress_requests([_make_request("a"), _make_request("b"), _make_request("c", False)]),
     ):
         if iterable:
@@ -43,7 +43,7 @@ def test_request_context_does_not_leak_after_failure():
     pipeline = ProgressBarMixin()
     pipeline.set_progress_bar_config(disable=True)
     events = []
-    with progress_sink(events.append):
+    with progress_callback(events.append):
         with pytest.raises(RuntimeError), progress_requests([_make_request("failed")]):
             with pipeline.progress_bar(total=2) as bar:
                 bar.update()
@@ -59,7 +59,7 @@ def test_each_loop_reports_its_own_steps():
     pipeline = ProgressBarMixin()
     pipeline.set_progress_bar_config(disable=True)
     events = []
-    with progress_sink(events.append), progress_requests([_make_request("video")]):
+    with progress_callback(events.append), progress_requests([_make_request("video")]):
         for total in (2, 3):
             with pipeline.progress_bar(total=total) as bar:
                 for _ in range(total):

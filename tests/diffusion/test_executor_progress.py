@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
+import asyncio
 import queue
 import threading
 from types import SimpleNamespace
@@ -28,8 +29,11 @@ class StepRunner(ProgressBarMixin):
 class ResultQueue:
     def __init__(self):
         self.items = queue.Queue()
+        self.progress_messages = []
 
     def enqueue(self, item):
+        if isinstance(item, AsyncDiffusionOutput) and item.kind == AsyncOutputKind.PROGRESS:
+            self.progress_messages.append(item)
         self.items.put(item)
 
     def dequeue(self, timeout):
@@ -72,7 +76,8 @@ def make_multiproc_executor(proc, config):
 
 @pytest.mark.parametrize("backend", ["uni", "mp"])
 @pytest.mark.parametrize("synchronous", [False, True])
-def test_executor_delivers_worker_progress(backend, synchronous, monkeypatch):
+@pytest.mark.asyncio
+async def test_executor_delivers_worker_progress(backend, synchronous, monkeypatch):
     worker = object.__new__(DiffusionWorker)
     worker.lora_manager = None
     worker.model_runner = StepRunner()
@@ -83,13 +88,14 @@ def test_executor_delivers_worker_progress(backend, synchronous, monkeypatch):
     request = SimpleNamespace(request_id="video", sampling_params=SimpleNamespace(emit_request_lifecycle=False))
     from vllm_omni.diffusion.diffusion_engine import DiffusionEngine
 
-    outputs = queue.Queue()
+    outputs = asyncio.Queue()
 
     def connect_engine(executor):
         # Skip model loading, retain real engine callback registration.
         monkeypatch.setattr(DiffusionEngine, "_init_process_hooks", lambda self, config: None)
         monkeypatch.setattr(DiffusionEngine, "_init_executor", lambda self, config: setattr(self, "executor", executor))
         engine = DiffusionEngine(config)
+        engine.main_loop = asyncio.get_running_loop()
         if not synchronous:
             engine._out_streams["video"] = outputs
         return engine
@@ -147,17 +153,20 @@ def test_executor_delivers_worker_progress(backend, synchronous, monkeypatch):
         pump.start()
         try:
             result = execute(executor, engine)
+            assert [message.result.completed for message in result_queue.progress_messages] == [1, 2]
             assert isinstance(result, DiffusionOutput if synchronous else AsyncDiffusionOutput)
         finally:
             executor._pump_stop.set()
             pump.join(timeout=3)
+    await asyncio.sleep(0)
     expected = [] if synchronous else [50, 100]
     assert [outputs.get_nowait().denoising_progress for _ in range(outputs.qsize())] == expected
 
 
 @pytest.mark.parametrize("backend", ["uni", "mp"])
 @pytest.mark.parametrize("streaming", [False, True])
-def test_step_worker_outputs_update_progress(streaming, backend):
+@pytest.mark.asyncio
+async def test_step_worker_outputs_update_progress(streaming, backend):
     from vllm_omni.diffusion.diffusion_engine import DiffusionEngine
     from vllm_omni.diffusion.request import OmniDiffusionRequest
     from vllm_omni.diffusion.sched.step_scheduler import StepScheduler
@@ -185,9 +194,10 @@ def test_step_worker_outputs_update_progress(streaming, backend):
     engine = object.__new__(DiffusionEngine)
     engine.execution_mode = engine._resolve_execution_mode(config)
     engine.scheduler = StepScheduler()
-    engine.main_loop = None
+    engine.main_loop = asyncio.get_running_loop()
+    engine._out_streams_lock = threading.Lock()
     engine._cv = threading.Condition()
-    outputs = queue.Queue()
+    outputs = asyncio.Queue()
     engine._out_streams = {"video": outputs}
     engine._remove_diffusion_kv_requests = lambda ids: None
     request = OmniDiffusionRequest(
@@ -224,6 +234,7 @@ def test_step_worker_outputs_update_progress(streaming, backend):
                 assert proc.result_mq.items.empty()  # RPC result was consumed; no extra progress messages.
             finished = engine.scheduler.update_from_output(scheduled, result)
             engine._emit_outputs(finished, scheduled.scheduled_request_ids, result, worker_execution_completed=True)
+            await asyncio.sleep(0)
             assert not outputs.empty(), "Completed worker step did not emit progress"
             output = outputs.get_nowait()
             assert output.denoising_progress == expected
@@ -238,3 +249,71 @@ def test_step_worker_outputs_update_progress(streaming, backend):
             executor._pump_stop.set()
             pump.join(timeout=3)
             assert not pump.is_alive()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("removed", [False, True])
+async def test_progress_from_worker_thread_uses_event_loop(removed: bool) -> None:
+    from vllm_omni.diffusion.diffusion_engine import DiffusionEngine
+    from vllm_omni.diffusion.models.progress_bar import DiffusionProgress
+
+    engine = object.__new__(DiffusionEngine)
+    engine.main_loop = asyncio.get_running_loop()
+    engine._out_streams_lock = threading.Lock()
+    outputs = asyncio.Queue()
+    engine._out_streams = {"video": outputs}
+    thread = threading.Thread(target=engine._on_progress, args=(DiffusionProgress("video", 1, 2),))
+    thread.start()
+    thread.join(timeout=1)
+    assert not thread.is_alive()
+    if removed:
+        with engine._out_streams_lock:
+            engine._out_streams.pop("video")
+    await asyncio.sleep(0)
+    if removed:
+        assert outputs.empty()
+    else:
+        output = await asyncio.wait_for(outputs.get(), timeout=1)
+        assert output.denoising_progress == 50
+        assert not output.finished
+
+
+@pytest.mark.parametrize("closes_during_handoff", [False, True])
+def test_progress_after_event_loop_closed_is_ignored(
+    closes_during_handoff: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vllm_omni.diffusion.diffusion_engine import DiffusionEngine
+    from vllm_omni.diffusion.models.progress_bar import DiffusionProgress
+
+    engine = object.__new__(DiffusionEngine)
+    engine.main_loop = asyncio.new_event_loop()
+    engine.main_loop.close()
+    if closes_during_handoff:
+        # The loop may close after the producer checks is_running().
+        monkeypatch.setattr(engine.main_loop, "is_running", lambda: True)
+    engine._out_streams_lock = threading.Lock()
+    outputs = asyncio.Queue()
+    engine._out_streams = {"video": outputs}
+    engine._on_progress(DiffusionProgress("video", 1, 2))
+    assert outputs.empty()
+
+
+@pytest.mark.asyncio
+async def test_progress_after_output_stream_cancelled_is_ignored() -> None:
+    from vllm_omni.diffusion.diffusion_engine import DiffusionEngine
+    from vllm_omni.diffusion.models.progress_bar import DiffusionProgress
+
+    engine = object.__new__(DiffusionEngine)
+    engine.main_loop = asyncio.get_running_loop()
+    engine._out_streams_lock = threading.Lock()
+    outputs = asyncio.Queue()
+    engine._out_streams = {"video": outputs}
+    stream = engine.get_output_stream("video")
+    consumer = asyncio.create_task(anext(stream))
+    await asyncio.sleep(0)
+    consumer.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await consumer
+    engine._on_progress(DiffusionProgress("video", 1, 2))
+    await asyncio.sleep(0)
+    assert outputs.empty()

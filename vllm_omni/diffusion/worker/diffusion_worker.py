@@ -71,7 +71,7 @@ from vllm_omni.diffusion.ipc import (
     payload_carries_typed_media,
 )
 from vllm_omni.diffusion.lora.manager import DiffusionLoRAManager, LoRABackend
-from vllm_omni.diffusion.models.progress_bar import progress_requests, progress_sink
+from vllm_omni.diffusion.models.progress_bar import DiffusionProgress, progress_callback, progress_requests
 from vllm_omni.diffusion.registry import get_diffusion_ir_op_priority_func
 from vllm_omni.diffusion.request import OmniDiffusionRequest
 from vllm_omni.diffusion.sched.interface import (
@@ -1229,6 +1229,9 @@ class WorkerProc:
         with self._result_mq_lock:
             self.result_mq.enqueue(msg)
 
+    def _report_progress(self, progress: DiffusionProgress) -> None:
+        self._enqueue_result(AsyncDiffusionOutput(kind=AsyncOutputKind.PROGRESS, result=progress))
+
     def _return_result(self, output: Any, rpc_id: str | None = None) -> None:
         """Reply to client, only on rank 0."""
         if self.result_mq is None:
@@ -1444,7 +1447,9 @@ class WorkerProc:
             if method in _MEMORY_RELEASING_METHODS:
                 self.drain_async_outputs()
             # Use execute_method from WorkerWrapperBase for consistent method resolution
-            with progress_sink(self._enqueue_result if should_reply and not self.od_config.step_execution else None):
+            with progress_callback(
+                self._report_progress if should_reply and not self.od_config.step_execution else None
+            ):
                 result = self.worker.execute_method(method, *args, **kwargs)
         except Exception as e:
             logger.error(f"Error executing RPC: {e}", exc_info=True)

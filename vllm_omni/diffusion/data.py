@@ -1814,7 +1814,7 @@ def is_diffusion_control_output(output: Any) -> bool:
 
 
 def get_diffusion_progress(output: Any) -> int | None:
-    """Return the denoising percentage, or None for outputs without progress."""
+    """Return the denoising percentage [0, 100], or None for outputs without progress."""
     custom_output = getattr(output, "custom_output", None)
     if isinstance(custom_output, dict):
         return custom_output.get(DIFFUSION_PROGRESS_KEY)
@@ -1935,12 +1935,14 @@ class DiffusionOutput:
 class AsyncOutputKind(Enum):
     """Message kind for ``AsyncDiffusionOutput`` — routes async results.
 
+    * ``PROGRESS`` — denoising step update carried in ``result``
     * ``RPC_RESULT`` — ordinary RPC return (sleep, wake, profile, etc.)
     * ``COMPUTE_DONE`` — worker forward finished, GPU can start next request
     * ``OUTPUT_READY`` — background D2H/SHM packing finished, final output
       is available via ``async_output_id``
     """
 
+    PROGRESS = "progress"
     RPC_RESULT = "rpc_result"
     COMPUTE_DONE = "compute_done"
     OUTPUT_READY = "output_ready"

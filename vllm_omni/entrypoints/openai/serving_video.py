@@ -760,9 +760,8 @@ class OmniOpenAIServingVideo:
             sampling_params_list=sampling_params_list,
         ):
             progress = get_diffusion_progress(output)
-            if progress is not None:
-                if on_progress is not None:
-                    await on_progress(progress)
+            if progress is not None and on_progress is not None:
+                await on_progress(progress)
                 continue
             if is_diffusion_request_started_output(output):
                 if on_started is not None and not started_notified:
