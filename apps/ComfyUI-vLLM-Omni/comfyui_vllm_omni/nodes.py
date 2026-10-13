@@ -628,8 +628,6 @@ class VLLMOmniYuE2Params:
         }
 
     def get_params(self, cot: Literal["off", "melody", "full"], abc: str = "") -> tuple[YuE2ModelSpecificParams]:
-        if cot not in ("off", "melody", "full"):
-            raise ValueError("YuE2 cot must be off, melody, or full.")
         if cot == "off":
             if abc.strip():
                 raise ValueError("ABC requires cot=melody or full; clear ABC when cot=off.")

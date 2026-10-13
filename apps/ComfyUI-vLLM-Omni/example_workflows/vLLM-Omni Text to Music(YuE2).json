@@ -8,12 +8,12 @@
       "id": 1,
       "type": "VLLMOmniGenerateMusic",
       "pos": [
-        1050,
-        100
+        920,
+        80
       ],
       "size": [
-        470,
-        491
+        390,
+        700
       ],
       "flags": {},
       "order": 1,
@@ -86,7 +86,7 @@
           "name": "audio",
           "type": "AUDIO",
           "links": [
-            1
+            3
           ]
         }
       ],
@@ -96,8 +96,8 @@
       "widgets_values": [
         "http://localhost:8000/v1",
         "m-a-p/YuE2-3B",
-        "Futuristic melodic EDM / progressive house. Reflective verses about memory and digital identity build into an uplifting, hook-driven chorus, with an emotive lead vocal, bright layered synths, pulsing bass, crisp four-on-the-floor drums, subtle glitch textures, and a wide polished festival mix.",
-        "[Verse 1]\nUpload my heart to the cloud tonight\nSave every spark of neon light\nIf this body starts to fade away\nLet my code keep dancing in the data stream\nStay\n[Chorus]\nCloud copy of me\nLiving on when these bones finally break free\nEvery joke, every scar\nEvery cheap memory we made\nSave it, save it\nCloud copy of me\nIf the screen goes dark, I’m still in the machine\nEvery glitch, every dream\nEvery version you ever did see\nSave it, save it\n[Verse 2]\nTag every laugh in a secret folder\nArchive the nights we outran the thunder\nIf the wiring turns to rust and gray\nHit restore… press replay\n[Chorus]\nCloud copy of me\nLiving on when these bones finally break free\nEvery joke, every scar\nEvery cheap memory we made\nSave it, save it\nCloud copy of me\nIf the screen goes dark, I’m still in the machine\nEvery glitch, every dream\nEvery version you ever did see\nSave it, save it (oh)\n[Bridge – new, optional but recommended]\nEven the crashes, the late-night confessions\nThe parts of me I never learned to mention\nDon’t let the silence swallow me whole\nKeep a ghost in the glow…\nSo I never go\n[Final Chorus – softer / layered]\nCloud copy of me\nStill laughing somewhere in the binary\nEvery joke, every scar\nEvery moment you saved for me\nSave it, save it\nCloud copy of me\nWhen the lights go out, I’ll still be in the machine\nDancing in the code that you still believe\nSave it…\nSave me",
+        "Upbeat J-pop with clear, expressive female vocals singing in English. Sparkling piano, bright electric guitars, punchy live drums, melodic bass, and subtle synth layers. Youthful and energetic, with a sunlit summer atmosphere. Rhythmically lively verses build into a soaring, memorable chorus with rich vocal harmonies and colorful chord changes. Polished modern production with clear vocals and a bright, spacious mix.",
+        "[Verse]\nMorning light across the window\nCity waking down below\nI can hear the streets are calling\nFeels like somewhere we should go\n\n[Chorus]\nRun with me into the sunlight\nLeave the shadows far behind\nWe don't need to know tomorrow\nTonight the whole world feels alive\n\n[Verse]\nRadio playing through the open door\nLaughing like we did before\nEvery mile becomes a memory\nAnd I just want a little more\n\n[Chorus]\nRun with me into the sunlight\nLeave the shadows far behind\nWe don't need to know tomorrow\nTonight the whole world feels alive",
         300.0,
         0,
         "fixed",
@@ -108,12 +108,12 @@
       "id": 2,
       "type": "SaveAudioAdvanced",
       "pos": [
-        1600,
-        420
+        1360,
+        80
       ],
       "size": [
         320,
-        491
+        320
       ],
       "flags": {},
       "order": 2,
@@ -160,14 +160,14 @@
     {
       "id": 3,
       "type": "MarkdownNote",
-      "title": "YuE2 Text to Music Guide",
+      "title": "YuE2 Text to Music Generation Guide",
       "pos": [
-        -600,
-        100
+        0,
+        80
       ],
       "size": [
-        527,
-        491
+        480,
+        700
       ],
       "flags": {},
       "order": 3,
@@ -176,10 +176,10 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## YuE2 Text to Music\n\nSet Generate Music URL/model to your remote service. Caption and lyrics remain editable. Maximum duration defaults to 300 seconds; the song may end earlier.\n\nThe default off mode generates from caption and lyrics without a score. To use a prepared ABC score, paste its text in YuE2 Params and select melody/full. This remote template does not include the official local ABC-generation stage: the current online speech API does not generate ABC.\n\nPreview Audio is above Save Audio. No generated ABC or truncation metadata is returned by the current remote API.\n"
+        "## YuE2 Text to Music Generation Guide\n\nThis template uses **YuE2** through the existing **Generate Music** node and **YuE2 Params**. Caption describes the music; Lyrics supplies the words. The default `cot=off` generates without an ABC score.\n\n### Parameters\n\n| Parameter | Description |\n|---|---|\n| url | vLLM-Omni service URL including `/v1`. Default: `http://localhost:8000/v1`. |\n| model | Served model name. Default: `m-a-p/YuE2-3B`. Match the running service. |\n| caption | Required music description, sent as `instructions`. Describe genre, instruments, mood, vocal language and arrangement. |\n| lyrics | Required words to sing, sent as `input`. Use section tags such as `[Verse]`, `[Chorus]` and `[Bridge]`. |\n| max_duration_seconds | Duration cap, default 300 seconds. YuE2 accepts 8–360 seconds; converted at 25 frames/s, rounded down. Generation may end earlier. |\n| seed | Random seed, default 0; range 0–9007199254740991. Keep all inputs and runtime settings unchanged for repeatability. |\n| control_after_generate | Seed behavior: fixed, randomize, increment or decrement. Template default: fixed. |\n| response_format | API audio format: WAV, MP3, FLAC or Opus. Template default: WAV. Save Audio independently exports MP3. |\n| model_specific_params | Optional MUSIC_PARAMS connection from YuE2 Params, carrying cot and ABC to the service. |\n| cot | `off`: no ABC; `melody`: supplied melody score; `full`: supplied score with chord annotations. |\n| abc | ABC score text, not a file path. Required for `melody/full`; keep empty for `off`. |\n\n### Usage\n\nSet URL/model to your YuE2 service, edit Caption and Lyrics, then queue the graph. Save Audio previews the output and writes MP3. To condition on an existing score, paste ABC text and choose its matching `melody/full` mode.\n\n### Prompt Writing Guide\n\nKeep Caption focused on genre, instrumentation, vocals and arrangement. Set the vocal language to match Lyrics. Section tags guide song structure without guaranteeing exact timing.\n"
       ],
       "widgets_values_named": {
-        "text": "## YuE2 Text to Music\n\nSet Generate Music URL/model to your remote service. Caption and lyrics remain editable. Maximum duration defaults to 300 seconds; the song may end earlier.\n\nThe default off mode generates from caption and lyrics without a score. To use a prepared ABC score, paste its text in YuE2 Params and select melody/full. This remote template does not include the official local ABC-generation stage: the current online speech API does not generate ABC.\n\nPreview Audio is above Save Audio. No generated ABC or truncation metadata is returned by the current remote API.\n"
+        "text": "## YuE2 Text to Music Generation Guide\n\nThis template uses **YuE2** through the existing **Generate Music** node and **YuE2 Params**. Caption describes the music; Lyrics supplies the words. The default `cot=off` generates without an ABC score.\n\n### Parameters\n\n| Parameter | Description |\n|---|---|\n| url | vLLM-Omni service URL including `/v1`. Default: `http://localhost:8000/v1`. |\n| model | Served model name. Default: `m-a-p/YuE2-3B`. Match the running service. |\n| caption | Required music description, sent as `instructions`. Describe genre, instruments, mood, vocal language and arrangement. |\n| lyrics | Required words to sing, sent as `input`. Use section tags such as `[Verse]`, `[Chorus]` and `[Bridge]`. |\n| max_duration_seconds | Duration cap, default 300 seconds. YuE2 accepts 8–360 seconds; converted at 25 frames/s, rounded down. Generation may end earlier. |\n| seed | Random seed, default 0; range 0–9007199254740991. Keep all inputs and runtime settings unchanged for repeatability. |\n| control_after_generate | Seed behavior: fixed, randomize, increment or decrement. Template default: fixed. |\n| response_format | API audio format: WAV, MP3, FLAC or Opus. Template default: WAV. Save Audio independently exports MP3. |\n| model_specific_params | Optional MUSIC_PARAMS connection from YuE2 Params, carrying cot and ABC to the service. |\n| cot | `off`: no ABC; `melody`: supplied melody score; `full`: supplied score with chord annotations. |\n| abc | ABC score text, not a file path. Required for `melody/full`; keep empty for `off`. |\n\n### Usage\n\nSet URL/model to your YuE2 service, edit Caption and Lyrics, then queue the graph. Save Audio previews the output and writes MP3. To condition on an existing score, paste ABC text and choose its matching `melody/full` mode.\n\n### Prompt Writing Guide\n\nKeep Caption focused on genre, instrumentation, vocals and arrangement. Set the vocal language to match Lyrics. Section tags guide song structure without guaranteeing exact timing.\n"
       },
       "color": "#333",
       "bgcolor": "#535353"
@@ -188,11 +188,11 @@
       "id": 4,
       "type": "VLLMOmniYuE2Params",
       "pos": [
-        520,
-        100
+        530,
+        80
       ],
       "size": [
-        500,
+        340,
         400
       ],
       "flags": {},
@@ -232,60 +232,9 @@
         "off",
         ""
       ]
-    },
-    {
-      "id": 5,
-      "type": "PreviewAudio",
-      "pos": [
-        1600,
-        100
-      ],
-      "size": [
-        380,
-        230
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "link": 1
-        }
-      ],
-      "outputs": [
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "links": [
-            3
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "PreviewAudio"
-      },
-      "widgets_values": []
     }
   ],
   "links": [
-    [
-      1,
-      1,
-      0,
-      5,
-      0,
-      "AUDIO"
-    ],
-    [
-      3,
-      5,
-      0,
-      2,
-      0,
-      "AUDIO"
-    ],
     [
       2,
       4,
@@ -293,6 +242,14 @@
       1,
       7,
       "MUSIC_PARAMS"
+    ],
+    [
+      3,
+      1,
+      0,
+      2,
+      0,
+      "AUDIO"
     ]
   ],
   "groups": [],
@@ -300,10 +257,10 @@
   "extra": {
     "workflowRendererVersion": "LG",
     "ds": {
-      "scale": 0.7,
+      "scale": 1,
       "offset": [
-        660,
-        50
+        275,
+        240
       ]
     }
   },
