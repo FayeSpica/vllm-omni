@@ -292,12 +292,12 @@ The node requires at least one mask; the server then enforces the cross-field ru
 
 ### Music generation (e.g., MiniMax Music 3)
 
-(Also available at **ComfyUI sidebar->Template->vLLM-Omni->vLLM-Omni Music Generation**)
+(Also available at **ComfyUI sidebar->Template->vLLM-Omni->vLLM-Omni Text to Music(MiniMax Music3)**)
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" src="https://raw.githubusercontent.com/vllm-project/vllm-omni/refs/heads/main/apps/ComfyUI-vLLM-Omni/docs/images/comfyui-music-generation.jpg">
-    <img alt="vLLM-Omni Music Generation" src="https://raw.githubusercontent.com/vllm-project/vllm-omni/refs/heads/main/apps/ComfyUI-vLLM-Omni/docs/images/comfyui-music-generation.jpg" width=55%>
+    <img alt="vLLM-Omni Text to Music(MiniMax Music3)" src="https://raw.githubusercontent.com/vllm-project/vllm-omni/refs/heads/main/apps/ComfyUI-vLLM-Omni/docs/images/comfyui-music-generation.jpg" width=55%>
   </picture>
 </p>
 
@@ -352,3 +352,25 @@ UI/UX design references
 - <https://github.com/sgl-project/sglang/pull/15271> SGLang Diffusion's official ComfyUI integration for image and video generation.
 - <https://github.com/SXQBW/ComfyUI-Qwen-Omni> A third party ComfyUI integration for Qwen Omni series.
 - <https://github.com/flybirdxx/ComfyUI-Qwen-TTS> <https://github.com/DarioFT/ComfyUI-Qwen3-TTS> Third  party ComfyUI integrations for Qwen TTS series.
+
+### YuE2 music generation
+
+Open **vLLM-Omni Text to Music(YuE2)** or **vLLM-Omni Music Cover(YuE2)** from the extension templates.
+Set Generate Music's URL and model to your running YuE2 service, then connect
+**YuE2 Params** to its optional **model_specific_params** input. The existing
+MiniMax Music template works without this connection.
+
+- Caption and lyrics map to the service's `instructions` and `input` fields.
+- `cot=off` requires an empty ABC field. `melody` and `full` require supplied
+  ABC score **text**, pasted or connected as STRING, not a file path.
+- Set maximum duration to 8–360 seconds; generation can finish earlier.
+- The current online adapter returns audio and does not generate ABC scores.
+  The node does not expose generated-score or truncation metadata.
+
+See [YuE2 serving documentation](../../recipes/m-a-p/YuE2-3B.md) for deployment details.
+
+The Music Cover template uses native Load Audio, Audio Encoder Loader and
+SheetSage2 Audio to ABC nodes locally, followed by remote YuE2 generation.
+Install a ComfyUI-compatible SheetSage2 checkpoint under `models/audio_encoders`,
+select it and upload your source audio. Keep both CoT modes set to `melody`;
+provide lyrics separately. The remote service receives ABC text, not source audio.
