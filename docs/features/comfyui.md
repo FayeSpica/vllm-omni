@@ -94,19 +94,6 @@ See the [H3 workflow guide](https://github.com/vllm-project/vllm-omni/blob/main/
 for server setup, template import, Turbo configuration, recorded validation,
 and saved-video/audio checks.
 
-## ABC sheet music preview
-
-The optional [ComfyUI-ABC-Preview extension](../../apps/ComfyUI-ABC-Preview/README.md)
-renders ABC notation from SheetSage2 or YuE2 as sheet music inside ComfyUI.
-Copy `apps/ComfyUI-ABC-Preview` into `ComfyUI/custom_nodes` alongside
-`ComfyUI-vLLM-Omni`, then restart ComfyUI and refresh the browser.
-
-Its **vLLM-Omni YuE2 Cover with Sheet Music** template adds an inline score,
-an enlarged view, and the original ABC text to the music-cover workflow.
-The preview passes ABC unchanged to generation; rendering runs in the browser
-and requires no additional Python packages or model weights. SheetSage2
-transcription and the remote YuE2 service retain their existing requirements.
-
 ## Examples & Screenshots
 
 Please read the [ComfyUI integration's README](https://github.com/vllm-project/vllm-omni/tree/main/apps/ComfyUI-vLLM-Omni) for more info.
