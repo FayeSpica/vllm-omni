@@ -327,11 +327,6 @@ Provide lyrics separately. The remote service receives ABC text rather than the
 source recording, and returns audio without generated ABC or truncation metadata.
 Save Audio previews and saves the result.
 
-For a five-line staff preview, also install
-[ComfyUI-ABC-Preview](../ComfyUI-ABC-Preview/README.md) and open its
-**vLLM-Omni YuE2 Cover with Sheet Music** template. The preview displays the ABC
-inside the node, offers an enlarged view, and passes the original score to YuE2.
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" src="https://raw.githubusercontent.com/vllm-project/vllm-omni/refs/heads/main/apps/ComfyUI-vLLM-Omni/docs/images/comfyui-music-cover.jpg">

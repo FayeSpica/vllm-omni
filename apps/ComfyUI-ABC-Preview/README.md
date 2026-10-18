@@ -32,21 +32,6 @@ server, and the SheetSage2 weights described in its music-cover instructions.
 Upload a reference recording in **Load Audio** and set the server URL before
 running. The example contains no generated audio or cached score.
 
-## Screenshots
-
-YuE2 cover workflow with an inline score preview:
-
-![YuE2 cover workflow with sheet music](docs/images/comfyui-yue2-sheet-music-workflow.png)
-
-Enlarged score view:
-
-![Enlarged ABC sheet music](docs/images/comfyui-yue2-sheet-music-detail.png)
-
-The displayed score was transcribed by SheetSage2 from a 30-second YuE2-generated
-music sample using the text-to-music template's caption and lyrics, `cot=off`,
-seed `0`, and a 30-second duration cap. It is generated/transcribed material,
-not a reference score or a transcription-accuracy measurement.
-
 ## Third-party code
 
 ABCJS 6.7.0 is bundled unmodified under its MIT license. See
