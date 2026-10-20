@@ -7,6 +7,13 @@ ARG APP_DIR=/vllm-workspace/vllm-omni
 WORKDIR ${APP_DIR}
 COPY . .
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libjemalloc2 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Avoid glibc heap corruption at Python shutdown with the NPU runtime.
+ENV LD_PRELOAD=libjemalloc.so.2
+
 RUN export PIP_EXTRA_INDEX_URL=https://mirrors.huaweicloud.com/ascend/repos/pypi && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     source /usr/local/Ascend/nnal/atb/set_env.sh && \
