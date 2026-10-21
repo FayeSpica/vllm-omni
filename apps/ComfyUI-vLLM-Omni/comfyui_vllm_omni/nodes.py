@@ -339,7 +339,8 @@ class VLLMOmniGenerateVideo(_VLLMOmniGenerateBase):
         # if model_params is not None:
         #     model_params.pop("type", None)  # internal fields
 
-        client = VLLMOmniClient(url)
+        # Video generation is asynchronous: keep HTTP requests short while allowing long job polling.
+        client = VLLMOmniClient(url, timeout=300, max_poll_duration=3 * 60 * 60)
         output = await client.generate_video(
             model=model,
             spec_model=spec_model,
@@ -888,11 +889,12 @@ class VLLMOmniRemoteLoRA:
                         "tooltip": "0 means it is not set and the server can derive it.",
                     },
                 ),
-            }
+            },
+            "optional": {"lora": ("REMOTE_LORA",), "enabled": ("BOOLEAN", {"default": True})},
         }
 
-    RETURN_TYPES = ("REMOTE_LORA",)
-    RETURN_NAMES = ("lora",)
+    RETURN_TYPES = ("REMOTE_LORA", "BOOLEAN")
+    RETURN_NAMES = ("lora", "enabled")
     FUNCTION = "get_lora"
     CATEGORY = "vLLM-Omni"
 
@@ -902,16 +904,21 @@ class VLLMOmniRemoteLoRA:
             return "Both local_path and name must be provided."
         return True
 
-    def get_lora(self, local_path: str, name: str, scale: float, int_id: int):
+    def get_lora(
+        self, local_path: str, name: str, scale: float, int_id: int, lora: dict | None = None, enabled: bool = True
+    ):
         local_path = local_path.strip()
         name = name.strip()
-        lora = {
+        adapter = {
             "local_path": local_path or None,
             "name": name or None,
-            "scale": float(scale),
+            "scale": float(scale) if enabled else 0.0,
             "int_id": int(int_id) if int_id > 0 else None,
         }
-        return (lora,)
+        if lora is not None:
+            adapters = lora.get("adapters", [lora])
+            return ({"adapters": [*adapters, adapter]}, adapter["scale"] > 0)
+        return (adapter, adapter["scale"] > 0)
 
 
 class VLLMOmniFastH3Deployment:
@@ -1029,7 +1036,20 @@ class VLLMOmniMiniMaxH3Params:
                     "FLOAT",
                     {"default": 12.0, "min": 0.0, "max": 100.0, "step": 0.1},
                 ),
-            }
+            },
+            "optional": {
+                "long_video": (
+                    "BOOLEAN",
+                    {"default": False, "tooltip": "Enable H3 long-video mode selection."},
+                ),
+                "long_video_mode": (
+                    ["full", "continuation"],
+                    {"tooltip": "full: whole-target generation. continuation: overlapping Ref2VA windows."},
+                ),
+                "continuation_window_frames": ("INT", {"default": 311, "min": 107, "max": 345, "step": 17}),
+                "continuation_overlap_frames": ("INT", {"default": 39, "min": 5, "max": 328, "step": 17}),
+                "continuation_slice_reference_video": ("BOOLEAN", {"default": True}),
+            },
         }
 
     RETURN_TYPES = ("VIDEO_PARAMS",)
@@ -1037,8 +1057,25 @@ class VLLMOmniMiniMaxH3Params:
     FUNCTION = "get_params"
     CATEGORY = "vLLM-Omni/Video Params"
 
-    def get_params(self, **kwargs):
+    def get_params(
+        self,
+        long_video: bool = False,
+        long_video_mode: Literal["full", "continuation"] = "full",
+        continuation_window_frames: int = 311,
+        continuation_overlap_frames: int = 39,
+        continuation_slice_reference_video: bool = True,
+        **kwargs,
+    ) -> tuple[MiniMaxH3ModelSpecificParams]:
         params = MiniMaxH3ModelSpecificParams(kwargs)
+        if long_video:
+            params["long_video"] = True
+            params["long_video_mode"] = long_video_mode
+            if long_video_mode == "continuation":
+                params.update(
+                    continuation_window_frames=continuation_window_frames,
+                    continuation_overlap_frames=continuation_overlap_frames,
+                    continuation_slice_reference_video=continuation_slice_reference_video,
+                )
         params["type"] = "minimax_h3"
         return (params,)
 
