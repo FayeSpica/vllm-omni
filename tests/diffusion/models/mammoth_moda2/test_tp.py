@@ -75,7 +75,7 @@ def test_tp8_padded_attention_heads_are_zero() -> None:
     local.load_weights(dense.state_dict().items())
     for projection in (local.attn.qkv_proj, local.attn.to_out[0]):
         assert torch.count_nonzero(projection.weight) == 0
-    assert torch.count_nonzero(local.feed_forward.linear_1.weight) > 0
+    assert torch.count_nonzero(local.feed_forward.gate_up_proj.weight) > 0
 
 
 def test_all_refiners_load_tp_weights() -> None:
