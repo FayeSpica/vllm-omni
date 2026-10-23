@@ -243,7 +243,11 @@ class VLLMOmniGenerateVideo(_VLLMOmniGenerateBase):
             return "Provide either frame or first_frame/last_frame, not both."
         if references is not None and (first_frame is not None or last_frame is not None):
             return "Provide either first_frame/last_frame or references, not both."
-        if fast_h3 is not None and any(value is not None for value in (frame, first_frame, last_frame, references)):
+        if (
+            fast_h3 is not None
+            and fast_h3.get("variant", "Preview") == "Preview"
+            and any(value is not None for value in (frame, first_frame, last_frame, references))
+        ):
             return (
                 "FastH3 Preview supports T2VA only; disconnect frame, first_frame, last_frame, and references inputs."
             )
@@ -280,12 +284,14 @@ class VLLMOmniGenerateVideo(_VLLMOmniGenerateBase):
         spec_model = model
 
         if fast_h3 is not None:
-            if any(value is not None for value in (frame, first_frame, last_frame, references)):
+            if fast_h3.get("variant", "Preview") == "Preview" and any(
+                value is not None for value in (frame, first_frame, last_frame, references)
+            ):
                 raise ValueError(
                     "FastH3 Preview supports T2VA only; disconnect frame, first_frame, "
                     "last_frame, and references inputs."
                 )
-            if lora is not None:
+            if fast_h3.get("variant", "Preview") == "Preview" and lora is not None:
                 raise ValueError(
                     "FastH3 is already fused into the selected server; disconnect the request-level LoRA input."
                 )
@@ -307,13 +313,15 @@ class VLLMOmniGenerateVideo(_VLLMOmniGenerateBase):
                 sampling_params = sampling_params[0].__class__(sampling_params[0])
             else:
                 sampling_params = sampling_params.__class__(sampling_params)
-            sampling_params["num_inference_steps"] = FASTH3_INFERENCE_STEPS
+            sampling_params["num_inference_steps"] = (
+                8 if fast_h3.get("variant", "Preview") == "Omni" else FASTH3_INFERENCE_STEPS
+            )
 
             # FastH3 owns both modality shifts. Sending the ordinary H3 values
             # from a connected H3 Params node would turn a deployment choice
             # into a request-level override, which the server intentionally
             # rejects when it differs from the fused adapter contract.
-            if model_params is not None:
+            if fast_h3.get("variant", "Preview") == "Preview" and model_params is not None:
                 model_params = model_params.__class__(model_params)
                 model_params.pop("flow_shift", None)
                 model_params.pop("audio_flow_shift", None)
@@ -942,7 +950,8 @@ class VLLMOmniFastH3Deployment:
                         "tooltip": "Model name exposed by the FastH3 deployment.",
                     },
                 ),
-            }
+            },
+            "optional": {"variant": (["Preview", "Omni"],), "enabled": ("BOOLEAN", {"default": True})},
         }
 
     RETURN_TYPES = ("FASTH3_DEPLOYMENT",)
@@ -950,21 +959,26 @@ class VLLMOmniFastH3Deployment:
     FUNCTION = "get_deployment"
     CATEGORY = "vLLM-Omni"
     DESCRIPTION = (
-        "Selects a server with FastH3 fused at startup. The connected Generate Video node uses T2VA, "
-        "four inference steps, and 24 FPS without sending a request-level LoRA."
+        "Selects an existing FastH3 service. Omni uses eight steps and accepts references. Preview uses T2VA, "
+        "four inference steps, and 24 FPS without sending a request-level LoRA. "
+        "Disable this node to use the Generate Video service fields. Omni LoRA compatibility is checked by the server."
     )
 
     @classmethod
-    def VALIDATE_INPUTS(cls, url, model) -> str | Literal[True]:
+    def VALIDATE_INPUTS(cls, url, model, enabled=True, **_kwargs) -> str | Literal[True]:
+        if not enabled:
+            return True
         try:
             _resolve_fast_h3_deployment({"url": url, "model": model})
         except ValueError as exc:
             return str(exc)
         return True
 
-    def get_deployment(self, url: str, model: str):
+    def get_deployment(self, url: str, model: str, variant: str = "Preview", enabled: bool = True):
+        if not enabled:
+            return (None,)
         url, model = _resolve_fast_h3_deployment({"url": url, "model": model})
-        return (FastH3Deployment({"url": url, "model": model}),)
+        return (FastH3Deployment({"url": url, "model": model, "variant": variant}),)
 
 
 class VLLMOmniQwenTTSParams:

@@ -207,3 +207,34 @@ async def test_lora_chain_uploads_list_in_lora_field(api_calls):
     fields = {options["name"]: value for options, _, value in api_calls.call_args_list[0].kwargs["data"]._fields}
     assert "loras" not in fields
     assert json.loads(fields["lora"]) == stack["adapters"]
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+async def test_fast_h3_omni_toggle_forwards_video_reference_and_lora(monkeypatch, enabled):
+    call = AsyncMock(return_value=b"video")
+    monkeypatch.setattr(omni_nodes.VLLMOmniClient, "generate_video", call)
+    deployment = omni_nodes.VLLMOmniFastH3Deployment().get_deployment(
+        "http://fast/v1", "FastVideo/FastVideo-FastH3-Omni-8-Step-V1", variant="Omni", enabled=enabled
+    )[0]
+    refs = {"video_1": VideoInput()}
+    lora = {"name": "swap", "scale": 1}
+    await omni_nodes.VLLMOmniGenerateVideo().generate(
+        url="http://base/v1",
+        model="MiniMaxAI/MiniMax-H3",
+        prompt="Replace the subject.",
+        width=1344,
+        height=768,
+        fps=24,
+        duration=5,
+        references=refs,
+        lora=lora,
+        fast_h3=deployment,
+    )
+    args = call.call_args.kwargs
+    assert args["references"] is refs
+    assert args["lora"] is lora
+    assert args["model"] == ("FastVideo/FastVideo-FastH3-Omni-8-Step-V1" if enabled else "MiniMaxAI/MiniMax-H3")
+    if enabled:
+        assert args["sampling_params"]["num_inference_steps"] == 8
+    else:
+        assert deployment is None
