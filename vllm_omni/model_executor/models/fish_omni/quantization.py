@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 import torch
+from typing_extensions import override
 from vllm.model_executor.layers.fused_moe import RoutedExperts
 from vllm.model_executor.layers.linear import LinearBase, UnquantizedLinearMethod
 from vllm.model_executor.layers.quantization import register_quantization_config
@@ -104,6 +105,8 @@ class Drama3Int4Config(QuantizationConfig):
 
     @classmethod
     def get_min_capability(cls) -> int:
+        # CUDA capability: 70 = Volta, 75 = Turing, 80 = Ampere (SM80).
+        # This checkpoint integration requires Ampere or newer.
         return 80
 
     @classmethod
@@ -114,6 +117,7 @@ class Drama3Int4Config(QuantizationConfig):
     def from_config(cls, config: dict[str, Any]) -> Drama3Int4Config:
         return cls(config)
 
+    @override
     def get_quant_method(self, layer: torch.nn.Module, prefix: str) -> QuantizeMethodBase | None:
         if isinstance(layer, RoutedExperts):
             return self.expert_config.get_quant_method(layer, prefix)
