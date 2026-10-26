@@ -227,7 +227,10 @@ def test_only_checkpoint_dense_targets_are_quantized(prefix: str, quantized: boo
             "group_size": 128,
             "sym": True,
             "desc_act": False,
+            "quant_method": DRAMA3_INT4_QUANTIZATION_METHOD,
+            "experts": {"quant_method": "gptq"},
             "dense": {
+                "quant_method": "gptq_marlin",
                 "targets": [
                     "self_attn.q_proj",
                     "self_attn.k_proj",
@@ -236,7 +239,7 @@ def test_only_checkpoint_dense_targets_are_quantized(prefix: str, quantized: boo
                     "linear_attn.in_proj_qkv",
                     "linear_attn.in_proj_z",
                     "linear_attn.out_proj",
-                ]
+                ],
             },
         }
     )

@@ -75,7 +75,18 @@ class Drama3Int4Config(QuantizationConfig):
             )
         if "group_size" not in config:
             raise ValueError(f"{DRAMA3_INT4_QUANTIZATION_METHOD} requires group_size")
-        if "dense" not in config or "targets" not in config["dense"]:
+        if config.get("quant_method") != DRAMA3_INT4_QUANTIZATION_METHOD:
+            raise ValueError(
+                f"quant_method={config.get('quant_method')!r}; expected {DRAMA3_INT4_QUANTIZATION_METHOD!r}"
+            )
+        for section, expected_method in (("experts", "gptq"), ("dense", "gptq_marlin")):
+            section_config = config.get(section)
+            if not isinstance(section_config, dict) or section_config.get("quant_method") != expected_method:
+                raise ValueError(
+                    f"{DRAMA3_INT4_QUANTIZATION_METHOD} requires {section}.quant_method={expected_method!r}; "
+                    f"got {section_config!r}"
+                )
+        if "targets" not in config["dense"]:
             raise ValueError(f"{DRAMA3_INT4_QUANTIZATION_METHOD} requires dense.targets")
         # Both checkpoint sections use GPTQ weight packing. AutoGPTQ dispatches
         # dense layers through the platform kernel selector (Marlin on A100),
