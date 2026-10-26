@@ -5,6 +5,7 @@
 import sys
 import types
 from collections.abc import Mapping
+from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -28,6 +29,28 @@ CHECKPOINT_QUANT_CONFIG = {
     "quant_method": "bsgemm-moe",
     "weight_block_size": [128, 128],
     "activation_scheme": "dynamic",
+}
+
+
+INT4_CHECKPOINT_QUANT_CONFIG = {
+    "bits": 4,
+    "group_size": 128,
+    "sym": True,
+    "desc_act": False,
+    "quant_method": DRAMA3_INT4_QUANTIZATION_METHOD,
+    "experts": {"quant_method": "gptq"},
+    "dense": {
+        "quant_method": "gptq_marlin",
+        "targets": [
+            "self_attn.q_proj",
+            "self_attn.k_proj",
+            "self_attn.v_proj",
+            "self_attn.o_proj",
+            "linear_attn.in_proj_qkv",
+            "linear_attn.in_proj_z",
+            "linear_attn.out_proj",
+        ],
+    },
 }
 
 
@@ -221,28 +244,7 @@ def test_int4_quantization_is_registered() -> None:
     ],
 )
 def test_only_checkpoint_dense_targets_are_quantized(prefix: str, quantized: bool) -> None:
-    config = Drama3Int4Config.from_config(
-        {
-            "bits": 4,
-            "group_size": 128,
-            "sym": True,
-            "desc_act": False,
-            "quant_method": DRAMA3_INT4_QUANTIZATION_METHOD,
-            "experts": {"quant_method": "gptq"},
-            "dense": {
-                "quant_method": "gptq_marlin",
-                "targets": [
-                    "self_attn.q_proj",
-                    "self_attn.k_proj",
-                    "self_attn.v_proj",
-                    "self_attn.o_proj",
-                    "linear_attn.in_proj_qkv",
-                    "linear_attn.in_proj_z",
-                    "linear_attn.out_proj",
-                ],
-            },
-        }
-    )
+    config = Drama3Int4Config.from_config(INT4_CHECKPOINT_QUANT_CONFIG)
     sentinel = MagicMock()
     with patch("vllm.model_executor.layers.quantization.auto_gptq.AutoGPTQLinearMethod", return_value=sentinel):
         method = config.get_quant_method(MagicMock(spec=LinearBase), prefix)
@@ -253,9 +255,27 @@ def test_only_checkpoint_dense_targets_are_quantized(prefix: str, quantized: boo
 
 
 @pytest.mark.parametrize(
-    "overrides",
-    [{"bits": 8}, {"sym": False}, {"desc_act": True}],
+    "section,field,value,message",
+    [
+        (None, "bits", 8, "symmetric 4-bit weights without activation ordering"),
+        (None, "sym", False, "symmetric 4-bit weights without activation ordering"),
+        (None, "desc_act", True, "symmetric 4-bit weights without activation ordering"),
+        (None, "group_size", None, "requires group_size"),
+        ("dense", "targets", None, r"requires dense\.targets"),
+        (None, "quant_method", "gptq", "expected 'drama3-int4'"),
+        ("experts", "quant_method", "awq", r"requires experts\.quant_method='gptq'"),
+        ("dense", "quant_method", "gptq", r"requires dense\.quant_method='gptq_marlin'"),
+    ],
 )
-def test_int4_rejects_incompatible_weight_formats(overrides: dict[str, int | bool]) -> None:
-    with pytest.raises(ValueError, match="symmetric 4-bit weights without activation ordering"):
-        Drama3Int4Config.from_config({"bits": 4, "sym": True, "desc_act": False, **overrides})
+def test_int4_other_configs_are_rejected(
+    section: str | None, field: str, value: int | bool | str | None, message: str
+) -> None:
+    config = deepcopy(INT4_CHECKPOINT_QUANT_CONFIG)
+    target = config if section is None else config[section]
+    if value is None:
+        del target[field]
+    else:
+        target[field] = value
+
+    with pytest.raises(ValueError, match=message):
+        Drama3Int4Config.from_config(config)
