@@ -181,7 +181,7 @@ Throughput is seconds of audio generated per wall-clock second.
 - OS: Linux
 - Python: 3.12
 - vLLM version: 0.32.0
-- vLLM-Omni version or commit: `81d8516f0` + this change
+- vLLM-Omni version or commit: `612017210` + INT4 support
 
 #### Command
 
@@ -201,23 +201,23 @@ Default `vllm_omni/deploy/fish_omni.yaml` (vLLM 0.32.0, vLLM-Omni `612017210` + 
 
 #### FP8 comparison (1x A100, both stages on one GPU)
 
-The same Seed-TTS-Eval en benchmark on vLLM-Omni `81d8516f0` + INT4 support (vLLM 0.32.0), with `max_num_seqs: 32` on both stages, stage 0 memory utilization 0.65 and Marlin.
+The same Seed-TTS-Eval en benchmark on vLLM-Omni `612017210` + INT4 support (vLLM 0.32.0), with `max_num_seqs: 128` on both stages, stage 0 memory utilization 0.65 and Marlin. Each checkpoint uses two fresh-server runs with 8 warmup requests excluded and 1088 timed requests per run; the table reports medians across runs. GPU 1 is shared with an existing process using approximately 7.7 GiB.
 
 | Checkpoint | Concurrency | Audio s/s | TTFA p50 | TTFA p95 | RTF (mean) | Streams that stall |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Original FP8 | 32 | 44.8 | 307 ms | 409 ms | 0.710 | 6.43% |
-| INT4 | 32 | 56.0 | 257 ms | 347 ms | 0.571 | 0.046% |
+| Original FP8 | 32 | 43.9 | 317 ms | 416 ms | 0.721 | 7.26% |
+| INT4 | 32 | 53.1 | 277 ms | 374 ms | 0.596 | 0.046% |
 
-INT4 delivers 24.9% more audio s/s. Model-loading GPU allocations were 37.94 GiB (FP8) and 21.31 GiB (INT4).
+INT4 delivers 21.0% more audio s/s and a 17.4% lower mean RTF in this comparison. Across the two runs, throughput ranges were 43.29–44.44 audio s/s (FP8) and 52.93–53.17 audio s/s (INT4). All 4352 timed HTTP requests completed; 3 FP8 outputs and no INT4 outputs had RMS at or below 1e-4. Throughput includes these low-RMS outputs. Model-loading GPU allocations were 37.95 GiB (FP8) and 21.33 GiB (INT4).
 
 #### Seed-TTS-Eval accuracy
 
-Seed-TTS-Eval en, 1088 outputs per checkpoint. WER: Whisper large-v3 FP32. SIM: mean-pooled `microsoft/wavlm-base-plus` embedding cosine (proxy, not the official WavLM-SV score). UTMOS: `balacoon/utmos`.
+Evaluated on vLLM-Omni `612017210` + INT4 support, using the first C32 run above (`max_num_seqs: 128` on both stages). Seed-TTS-Eval en, 1088 outputs per checkpoint, including low-RMS outputs. WER: Whisper large-v3 FP32. SIM: mean-pooled `microsoft/wavlm-base-plus` embedding cosine (proxy, not the official WavLM-SV score). UTMOS: `balacoon/utmos`.
 
 | Checkpoint | WER (en) ↓ | SIM (WavLM proxy) ↑ | UTMOS ↑ |
 | --- | ---: | ---: | ---: |
-| Original FP8 | 2.63% | 0.8639 | 3.3566 |
-| INT4 | 2.42% | 0.8666 | 3.3569 |
+| Original FP8 | 2.60% | 0.8626 | 3.3571 |
+| INT4 | 2.47% | 0.8671 | 3.3572 |
 
 ## NPU
 

@@ -65,10 +65,20 @@ class Drama3Int4Config(QuantizationConfig):
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__()
+        for key in ("bits", "sym"):
+            if key not in config:
+                raise ValueError(f"{DRAMA3_INT4_QUANTIZATION_METHOD} requires {key}")
         if config["bits"] != 4 or not config["sym"] or config.get("desc_act", False):
             raise ValueError(
                 f"{DRAMA3_INT4_QUANTIZATION_METHOD} requires symmetric 4-bit weights without activation ordering"
             )
+        if "group_size" not in config:
+            raise ValueError(f"{DRAMA3_INT4_QUANTIZATION_METHOD} requires group_size")
+        if "dense" not in config or "targets" not in config["dense"]:
+            raise ValueError(f"{DRAMA3_INT4_QUANTIZATION_METHOD} requires dense.targets")
+        # Both checkpoint sections use GPTQ weight packing. AutoGPTQ dispatches
+        # dense layers through the platform kernel selector (Marlin on A100),
+        # and routed experts through its WNA16 backend selector.
         gptq_config = {
             "quant_method": "gptq",
             "bits": config["bits"],
