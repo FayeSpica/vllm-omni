@@ -174,6 +174,57 @@ Throughput is seconds of audio generated per wall-clock second.
 - `previous_takes` (editing as continuation) and long-text chunking are not
   exposed by the speech API yet.
 
+### 1x A100 80GB (INT4)
+
+#### Environment
+
+- OS: Linux
+- Python: 3.12
+- vLLM version: 0.32.0
+- vLLM-Omni version or commit: `81d8516f0` + this change
+
+#### Command
+
+```bash
+vllm serve fishaudio/drama-3-int4 --omni --port 8091 \
+  --stage-overrides '{"0": {"gpu_memory_utilization": 0.65, "moe_backend": "marlin"}}'
+```
+
+#### Measured performance (1x A100, both stages on one GPU)
+
+Default `vllm_omni/deploy/fish_omni.yaml` (vLLM 0.32.0, vLLM-Omni `612017210` + INT4 support), INT4 checkpoint with Marlin experts, stage 0 memory utilization 0.65 on a shared GPU and `max_num_seqs: 128` on both stages. Seed-TTS-Eval en (1088 lines, each cloning its own reference, sent pre-encoded as `ref_audio_codes`), streaming `/v1/audio/speech` (raw pcm), the sampling above, a fresh server per run, 8 warmup requests excluded. Each concurrency was run twice; the table reports the median of each metric across the two runs. Throughput is seconds of audio generated per wall-clock second.
+
+| Concurrency | Audio s/s | TTFA p50 | TTFA p95 | RTF (mean) | Streams that stall |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 32 | 54.1 | 270 ms | 365 ms | 0.589 | 0.046% |
+| 64 | 83.2 | 393 ms | 1076 ms | 0.754 | 11.9% |
+| 128 | 101.1 | 569 ms | 1958 ms | 1.180 | 97.7% |
+
+#### FP8 comparison (1x A100, both stages on one GPU)
+
+The same Seed-TTS-Eval en benchmark on vLLM-Omni `81d8516f0` + INT4 support (vLLM 0.32.0), with `max_num_seqs: 32` on both stages, stage 0 memory utilization 0.65 and Marlin. Each checkpoint uses two fresh-server runs; rows report the median of each metric. Eight warmup requests are excluded from each 1088-request run. Use the command below for INT4; replace the model ID with `fishaudio/drama-3` for FP8.
+
+```bash
+vllm serve fishaudio/drama-3-int4 --omni --port 8091 \
+  --stage-overrides '{"0": {"max_num_seqs": 32, "gpu_memory_utilization": 0.65, "moe_backend": "marlin"}, "1": {"max_num_seqs": 32}}'
+```
+
+| Checkpoint | Concurrency | Audio s/s | TTFA p50 | TTFA p95 | RTF (mean) | Streams that stall |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Original FP8 | 32 | 44.8 | 307 ms | 409 ms | 0.710 | 6.43% |
+| INT4 | 32 | 56.0 | 257 ms | 347 ms | 0.571 | 0.046% |
+
+INT4 delivers 24.9% more audio s/s. Model-loading GPU allocations were 37.94 GiB (FP8) and 21.31 GiB (INT4).
+
+#### Seed-TTS-Eval accuracy
+
+English WER uses Whisper large-v3 in FP32, audio resampled to 16 kHz and Seed-TTS-Eval text normalization. SIM uses mean-pooled, L2-normalized `microsoft/wavlm-base-plus` embeddings and cosine similarity; it is a proxy, not the official fine-tuned WavLM-SV score. UTMOS uses `balacoon/utmos` (`utmos.jit`). Each checkpoint has complete WER, SIM and UTMOS scores for all 1088 outputs from its first comparison run, including near-silent responses.
+
+| Checkpoint | WER (en) ↓ | SIM (WavLM proxy) ↑ | UTMOS ↑ |
+| --- | ---: | ---: | ---: |
+| Original FP8 | 2.63% | 0.8639 | 3.3566 |
+| INT4 | 2.42% | 0.8666 | 3.3569 |
+
 ## NPU
 
 ### 2x Ascend 910B 64GB
