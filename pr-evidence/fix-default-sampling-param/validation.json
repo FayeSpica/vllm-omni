@@ -1,0 +1,22 @@
+[
+  {
+    "case": "inherited",
+    "status": 200,
+    "e2e_seconds": 24.120848182588816,
+    "size": [
+      1024,
+      1024
+    ],
+    "pixel_sha256": "70499c16dea54bddb1d67831f2df11bc5e0a45ec01b2b99ef2bc3a2d532bf532"
+  },
+  {
+    "case": "explicit",
+    "status": 200,
+    "e2e_seconds": 24.33560160174966,
+    "size": [
+      1024,
+      1024
+    ],
+    "pixel_sha256": "70499c16dea54bddb1d67831f2df11bc5e0a45ec01b2b99ef2bc3a2d532bf532"
+  }
+]
