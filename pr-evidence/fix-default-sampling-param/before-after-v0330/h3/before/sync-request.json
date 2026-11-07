@@ -1,0 +1,8 @@
+{
+  "model": "MiniMaxAI/MiniMax-H3",
+  "prompt": "A small blue bird hops along a wooden garden fence in morning sunlight. Gentle camera movement, birds chirping and soft wind.",
+  "size": "512x288",
+  "num_frames": 100,
+  "fps": 24,
+  "extra_params": "{\"task\": \"t2va\", \"aspect_ratio\": \"16:9\"}"
+}

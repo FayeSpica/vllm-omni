@@ -1,0 +1,13 @@
+{
+  "generations": {
+    "http_status": 200,
+    "e2e_seconds": 27.545,
+    "endpoint": "/v1/images/generations",
+    "shape": [
+      1024,
+      1024,
+      3
+    ],
+    "rgb_sha256": "0f42b46cd38add87903b7827bfd614d58e62677ed3739830807f90031c8b1ccd"
+  }
+}

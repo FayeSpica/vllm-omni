@@ -1,0 +1,6 @@
+{
+  "model": "Qwen/Qwen-Image-2.1-Turbo",
+  "prompt": "把人物手中的木桶改成蓝色，保持人物和背景不变。",
+  "size": "512x512",
+  "n": 1
+}

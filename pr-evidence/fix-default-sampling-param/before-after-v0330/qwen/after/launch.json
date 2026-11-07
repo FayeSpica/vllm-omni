@@ -1,0 +1,18 @@
+{
+  "source": "after",
+  "args": [
+    "serve",
+    "Qwen/Qwen-Image-2.1-Turbo",
+    "--omni",
+    "--host",
+    "0.0.0.0",
+    "--port",
+    "8000",
+    "--enforce-eager",
+    "--stage-init-timeout",
+    "1800",
+    "--default-sampling-params",
+    "{\"0\": {\"num_inference_steps\": 8, \"true_cfg_scale\": 1.0}}"
+  ],
+  "rng_control": "Only omitted-seed randint is fixed at 42 in the test harness; request and sampling defaults are unchanged."
+}

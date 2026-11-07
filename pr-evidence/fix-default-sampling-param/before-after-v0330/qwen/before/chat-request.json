@@ -1,0 +1,14 @@
+{
+  "model": "Qwen/Qwen-Image-2.1-Turbo",
+  "messages": [
+    {
+      "role": "user",
+      "content": "A blue ceramic teapot on a wooden table beside a window, soft daylight, detailed illustration."
+    }
+  ],
+  "modalities": [
+    "image"
+  ],
+  "height": 512,
+  "width": 512
+}
