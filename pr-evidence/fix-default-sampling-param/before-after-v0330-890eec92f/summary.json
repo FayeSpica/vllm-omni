@@ -1,0 +1,154 @@
+{
+  "before": "2b610b3e9",
+  "after": "890eec92f",
+  "models": {
+    "moss": {
+      "before": {
+        "generations": {
+          "http_status": 200,
+          "e2e_seconds": 14.056,
+          "endpoint": "/v1/images/generations",
+          "shape": [
+            1024,
+            1024,
+            3
+          ],
+          "rgb_sha256": "2c78f77c5d06840844e42b803acbd4a62d29641cc9314ccd5cbe8eba2131e4f9"
+        }
+      },
+      "after": {
+        "generations": {
+          "http_status": 200,
+          "e2e_seconds": 27.562,
+          "endpoint": "/v1/images/generations",
+          "shape": [
+            1024,
+            1024,
+            3
+          ],
+          "rgb_sha256": "0f42b46cd38add87903b7827bfd614d58e62677ed3739830807f90031c8b1ccd"
+        }
+      }
+    },
+    "qwen": {
+      "before": {
+        "edits": {
+          "http_status": 200,
+          "e2e_seconds": 2.029,
+          "endpoint": "/v1/images/edits",
+          "shape": [
+            512,
+            512,
+            3
+          ],
+          "rgb_sha256": "cb2aaddbcec89ece6fac8056be333b57c3008bc21a47e212ba1cdc94715891b5"
+        },
+        "chat": {
+          "http_status": 200,
+          "e2e_seconds": 1.12,
+          "endpoint": "/v1/chat/completions",
+          "shape": [
+            512,
+            512,
+            3
+          ],
+          "rgb_sha256": "b268f21727bccf74dcbfd8df353cd7124fbd9ff20048d7c23931d6e9512ef58d"
+        }
+      },
+      "after": {
+        "edits": {
+          "http_status": 200,
+          "e2e_seconds": 2.015,
+          "endpoint": "/v1/images/edits",
+          "shape": [
+            512,
+            512,
+            3
+          ],
+          "rgb_sha256": "cb2aaddbcec89ece6fac8056be333b57c3008bc21a47e212ba1cdc94715891b5"
+        },
+        "chat": {
+          "http_status": 200,
+          "e2e_seconds": 1.082,
+          "endpoint": "/v1/chat/completions",
+          "shape": [
+            512,
+            512,
+            3
+          ],
+          "rgb_sha256": "b268f21727bccf74dcbfd8df353cd7124fbd9ff20048d7c23931d6e9512ef58d"
+        }
+      }
+    },
+    "h3": {
+      "before": {
+        "async": {
+          "http_status": 200,
+          "e2e_seconds": 139.605,
+          "endpoint": "/v1/videos",
+          "shape": [
+            107,
+            288,
+            512,
+            3
+          ],
+          "rgb_sha256": "88c610d49efd85ecd5c2a30f64eb3473ec55c7df995637fd5743cf1027275b6c",
+          "audio_pcm_sha256": "baa3629b659bc5426a9617e61e5f4eeca2dc0d47cbf9a6e159618574ab85ae8a",
+          "audio_sample_rate": 32000,
+          "audio_rms": 0.005144505360712577,
+          "frame_delta": 7.607305392112705
+        },
+        "sync": {
+          "http_status": 200,
+          "e2e_seconds": 133.968,
+          "endpoint": "/v1/videos/sync",
+          "shape": [
+            107,
+            288,
+            512,
+            3
+          ],
+          "rgb_sha256": "88c610d49efd85ecd5c2a30f64eb3473ec55c7df995637fd5743cf1027275b6c",
+          "audio_pcm_sha256": "baa3629b659bc5426a9617e61e5f4eeca2dc0d47cbf9a6e159618574ab85ae8a",
+          "audio_sample_rate": 32000,
+          "audio_rms": 0.005144505360712577,
+          "frame_delta": 7.607305392112705
+        }
+      },
+      "after": {
+        "async": {
+          "http_status": 200,
+          "e2e_seconds": 137.923,
+          "endpoint": "/v1/videos",
+          "shape": [
+            107,
+            288,
+            512,
+            3
+          ],
+          "rgb_sha256": "88c610d49efd85ecd5c2a30f64eb3473ec55c7df995637fd5743cf1027275b6c",
+          "audio_pcm_sha256": "baa3629b659bc5426a9617e61e5f4eeca2dc0d47cbf9a6e159618574ab85ae8a",
+          "audio_sample_rate": 32000,
+          "audio_rms": 0.005144505360712577,
+          "frame_delta": 7.607305392112705
+        },
+        "sync": {
+          "http_status": 200,
+          "e2e_seconds": 134.005,
+          "endpoint": "/v1/videos/sync",
+          "shape": [
+            107,
+            288,
+            512,
+            3
+          ],
+          "rgb_sha256": "88c610d49efd85ecd5c2a30f64eb3473ec55c7df995637fd5743cf1027275b6c",
+          "audio_pcm_sha256": "baa3629b659bc5426a9617e61e5f4eeca2dc0d47cbf9a6e159618574ab85ae8a",
+          "audio_sample_rate": 32000,
+          "audio_rms": 0.005144505360712577,
+          "frame_delta": 7.607305392112705
+        }
+      }
+    }
+  }
+}

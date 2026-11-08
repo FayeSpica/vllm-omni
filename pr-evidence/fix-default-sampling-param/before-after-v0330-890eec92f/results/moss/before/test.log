@@ -1,0 +1,1 @@
+moss before generations {"http_status": 200, "e2e_seconds": 14.056, "endpoint": "/v1/images/generations", "shape": [1024, 1024, 3], "rgb_sha256": "2c78f77c5d06840844e42b803acbd4a62d29641cc9314ccd5cbe8eba2131e4f9"}

@@ -1,0 +1,14 @@
+{
+  "moss/generations": {
+    "mse": 3309.948098182678,
+    "psnr_db": 12.932591770165383
+  },
+  "qwen/edits": {
+    "mse": 0.0,
+    "psnr_db": "infinity"
+  },
+  "qwen/chat": {
+    "mse": 0.0,
+    "psnr_db": "infinity"
+  }
+}

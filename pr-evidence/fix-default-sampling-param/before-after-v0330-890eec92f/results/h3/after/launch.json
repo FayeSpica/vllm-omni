@@ -1,0 +1,27 @@
+{
+  "source": "after",
+  "args": [
+    "serve",
+    "/root/.cache/huggingface/hub/models--MiniMaxAI--MiniMax-H3/snapshots/42ed227ee7df40d41602854ae760620d6eb651fe/FL2VA",
+    "--omni",
+    "--host",
+    "0.0.0.0",
+    "--port",
+    "8000",
+    "--enforce-eager",
+    "--stage-init-timeout",
+    "1800",
+    "--served-model-name",
+    "MiniMaxAI/MiniMax-H3",
+    "--trust-remote-code",
+    "--task-type",
+    "fl2va",
+    "--num-gpus",
+    "1",
+    "--diffusion-offload-config",
+    "{\"mode\": \"layer\", \"components\": [\"dit\", \"text_encoder\"]}",
+    "--diffusion-attention-backend",
+    "FLASH_ATTN"
+  ],
+  "rng_control": "Only omitted-seed randint is fixed at 42 in the test harness; request and sampling defaults are unchanged."
+}

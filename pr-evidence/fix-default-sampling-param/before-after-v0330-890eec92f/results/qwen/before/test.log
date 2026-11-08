@@ -1,0 +1,2 @@
+qwen before edits {"http_status": 200, "e2e_seconds": 2.029, "endpoint": "/v1/images/edits", "shape": [512, 512, 3], "rgb_sha256": "cb2aaddbcec89ece6fac8056be333b57c3008bc21a47e212ba1cdc94715891b5"}
+qwen before chat {"http_status": 200, "e2e_seconds": 1.12, "endpoint": "/v1/chat/completions", "shape": [512, 512, 3], "rgb_sha256": "b268f21727bccf74dcbfd8df353cd7124fbd9ff20048d7c23931d6e9512ef58d"}

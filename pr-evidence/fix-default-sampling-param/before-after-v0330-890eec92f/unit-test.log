@@ -1,0 +1,117 @@
+/regression/src/vllm_omni/__init__.py:22: RuntimeWarning: Failed to import version from _version.py: No module named 'vllm_omni._version'
+This typically happens in development mode before building.
+Using fallback version 'dev'.
+  from .version import __version__, __version_tuple__  # isort:skip # noqa: F401
+W1108 05:55:52.213000 1 torch/_opaque_base.py:6] torch._opaque_base is deprecated, use torch._custom_class_base instead
+W1108 05:55:52.213000 1 torch/_library/opaque_object.py:288] register_opaque_type is deprecated, use register_custom_class instead
+W1108 05:55:52.214000 1 torch/_library/opaque_object.py:211] typ='value' is deprecated, use typ='constant' instead
+........................................................................ [  4%]
+.................x...................................................... [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+........................................................................ [ 29%]
+........................................................................ [ 34%]
+........................................................................ [ 39%]
+...................s.................................................... [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 54%]
+........................................................................ [ 59%]
+........................................................................ [ 64%]
+........................................................................ [ 69%]
+........................................................................ [ 74%]
+........................................................................ [ 79%]
+........................................................................ [ 84%]
+........................................................................ [ 89%]
+........................................................................ [ 94%]
+........................................................................ [ 99%]
+.........                                                                [100%]
+=============================== warnings summary ===============================
+../../usr/local/lib/python3.12/dist-packages/vllm/entrypoints/openai/api_server.py:24
+  /usr/local/lib/python3.12/dist-packages/vllm/entrypoints/openai/api_server.py:24: DeprecationWarning: `vllm.entrypoints.openai.api_server` is deprecated and will likely beunsupported in a future version. Use the corresponding function from `vllm.entrypoints.launchers` instead.
+    warnings.warn(
+
+vllm_omni/protocol/realtime/audio.py:17
+  /regression/src/vllm_omni/protocol/realtime/audio.py:17: DeprecationWarning: 'audioop' is deprecated and slated for removal in Python 3.13
+    from audioop import alaw2lin, lin2alaw, lin2ulaw, ulaw2lin
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/fused_moe/cute_dsl/blackwell/blockscaled_contiguous_gather_grouped_gemm_act_fusion.py:3459: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    c_layout: utils.LayoutEnum,
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/fused_moe/cute_dsl/blackwell/moe_w4a16_kernel.py:2386: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    c_layout: utils.LayoutEnum,
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/fused_moe/cute_dsl/hopper/utils.py:29: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    a_layout: utils.LayoutEnum,
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/fused_moe/cute_dsl/hopper/utils.py:31: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    b_layout: utils.LayoutEnum,
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/fused_moe/cute_dsl/hopper/utils.py:34: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    c_layout: utils.LayoutEnum,
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/fused_moe/cute_dsl/hopper/contiguous_grouped_gemm_finalize_fusion.py:968: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    a_layout: utils.LayoutEnum,
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/fused_moe/cute_dsl/hopper/contiguous_grouped_gemm_finalize_fusion.py:970: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    b_layout: utils.LayoutEnum,
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/gemm/kernels/grouped_gemm_masked_blackwell.py:427: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    epi_layout: utils.LayoutEnum,
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/gemm/kernels/grouped_gemm_masked_blackwell.py:2391: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    c_layout: utils.LayoutEnum,
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/gemm/kernels/cute_dsl/low_latency_blockscaled_gemm.py:102: DeprecationWarning: cutlass.utils.smem_allocator.get_smem_capacity_in_bytes is deprecated; use cutlass.memory.get_smem_capacity_in_bytes instead. It will be removed in a future release.
+    _SMEM_CAPACITY_BYTES = cutlass.utils.get_smem_capacity_in_bytes("sm_100")
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/gemm/kernels/grouped_gemm_masked_rubin.py:218: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    c_layout: utils.LayoutEnum,
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/gdn_kernels/blackwell/gated_delta_net_chunked.py:95: DeprecationWarning: cutlass.utils.TensorMapUpdateMode is deprecated; use cutlass.tensor_utils.TensorMapUpdateMode instead. It will be removed in a future release.
+    from cutlass.utils import TensorMapManager, TensorMapUpdateMode
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/gdn_kernels/delta_rule_dsl/collective_store_tma.py:6: DeprecationWarning: cutlass.utils.tensormap_manager.TensorMapUpdateMode is deprecated; use cutlass.tensor_utils.TensorMapUpdateMode instead. It will be removed in a future release.
+    from cutlass.utils.tensormap_manager import TensorMapManager, TensorMapUpdateMode
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/gdn_kernels/blackwell/gated_delta_net_cp_prefill.py:55: DeprecationWarning: cutlass.utils.TensorMapUpdateMode is deprecated; use cutlass.tensor_utils.TensorMapUpdateMode instead. It will be removed in a future release.
+    from cutlass.utils import TensorMapManager, TensorMapUpdateMode
+
+tests/entrypoints/openai_api/test_image_server.py::test_image_edits_size_auto_preserves_bridge_size
+  /usr/local/lib/python3.12/dist-packages/flashinfer/cute_dsl/availability.py:136: DeprecationWarning: Arch from arch.py is deprecated. Use Arch from enums.py instead.
+    from cutlass.base_dsl.arch import Arch
+
+tests/entrypoints/openai_api/test_serving_chat_sampling_params.py::test_partial_stage_params_inherit_request_and_deploy_defaults[max_tokens]
+tests/entrypoints/openai_api/test_serving_chat_sampling_params.py::test_explicit_stage_params_override_top_level_request
+tests/entrypoints/openai_api/test_serving_chat_sampling_params.py::test_max_completion_tokens_takes_precedence
+tests/entrypoints/openai_api/test_serving_chat_sampling_params.py::test_empty_stage_params_inherit_explicit_request[partial0]
+tests/entrypoints/openai_api/test_serving_chat_sampling_params.py::test_empty_stage_params_inherit_explicit_request[partial1]
+tests/entrypoints/openai_api/test_serving_chat_sampling_params.py::test_omitted_comprehension_stage_inherits_explicit_request
+tests/entrypoints/openai_api/test_serving_chat_sampling_params.py::test_stage_sampling_preserves_diffusion_and_constructed_params
+tests/entrypoints/openai_api/test_serving_chat_sampling_params.py::test_stage_sampling_preserves_diffusion_and_constructed_params
+tests/entrypoints/openai_api/test_serving_chat_sampling_params.py::test_omitted_pooling_stage_keeps_parameter_type
+  /regression/src/vllm_omni/entrypoints/openai/serving_chat.py:1480: DeprecationWarning: max_tokens is deprecated in favor of the max_completion_tokens field
+    value = getattr(request, field_name, None)
+
+tests/config/test_omni_config.py::test_from_pipeline_config_forwards_fastvideo_vsa_topk
+  /regression/src/vllm_omni/config/omni_config.py:1528: FutureWarning: Diffusion config field 'diffusion_attention_backend' is deprecated; use 'diffusion_attention_config'.
+    normalized = normalize_omni_diffusion_kwargs(mixed_kwargs)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1447 passed, 1 skipped, 1 xfailed, 29 warnings in 51.86s

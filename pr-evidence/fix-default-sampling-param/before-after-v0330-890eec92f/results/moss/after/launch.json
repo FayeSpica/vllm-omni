@@ -1,0 +1,16 @@
+{
+  "source": "after",
+  "args": [
+    "serve",
+    "OpenMOSS-Team/MOSS-Image-Base",
+    "--omni",
+    "--host",
+    "0.0.0.0",
+    "--port",
+    "8000",
+    "--enforce-eager",
+    "--stage-init-timeout",
+    "1800"
+  ],
+  "rng_control": "Only omitted-seed randint is fixed at 42 in the test harness; request and sampling defaults are unchanged."
+}

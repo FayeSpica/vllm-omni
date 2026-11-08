@@ -1,0 +1,29 @@
+{
+  "model": "MiniMaxAI/MiniMax-H3",
+  "prompt": "A small blue bird hops along a wooden garden fence in morning sunlight. Gentle camera movement, birds chirping and soft wind.",
+  "id": "video_gen_a56e3c1586e94425bdc15f73056a623e",
+  "object": "video",
+  "status": "completed",
+  "size": "512x288",
+  "progress": 100,
+  "seconds": "4",
+  "quality": "default",
+  "completed_at": 1794117179,
+  "created_at": 1794117040,
+  "remixed_from_video_id": null,
+  "error": null,
+  "media_type": "video/mp4",
+  "expires_at": null,
+  "file_name": "video_gen_a56e3c1586e94425bdc15f73056a623e.mp4",
+  "inference_time_s": 139.03599118441343,
+  "fps": 24.0,
+  "num_frames": 107,
+  "duration_s": 4.458333333333333,
+  "metrics": null,
+  "stage_durations": {
+    "queue_wait_ms": 1.1974647641181946,
+    "stage_0_gen_ms": 138641.42227172852
+  },
+  "peak_memory_mb": 17152.0,
+  "action": null
+}
